@@ -41,13 +41,14 @@ async function getBahaDate() {
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
   let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
   let nameEn = bahaHtml.find('.ACG-mster_box1 > h2')[1].innerText
-  let site = bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.innerText
+  let site = decodeURIComponent(bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.href?.match(/url=(.+)/)[1])
   let time = bahaHtml.find('.ACG-box1listA > li:contains("當地")')[0]?.innerText?.split('：')[1]
 
   return {
     nameJp: titleProcess(nameJp),
     nameEn: titleProcess(nameEn),
     site: siteProcess(site),
+    fullUrl: site,
     time: timeProcess(time),
   }
 }
@@ -126,6 +127,12 @@ async function searchSyoboi() {
   let site = bahaData.site
   let time = bahaData.time
   if(!site || !time) return ''
+  if(['www.tv-tokyo.co.jp', 'www.tbs.co.jp'].includes(site)){
+    site = bahaData.fullUrl.match(/(www.tv-tokyo.co.jp\/anime\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(www.tv-tokyo.co.jp\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(www.tbs.co.jp\/anime\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(www.tbs.co.jp\/[^\/]+)/)?.[1] || ''
+  }
   let searchUrl = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=0&rd=&v=0`
   dd(searchUrl)
 
@@ -139,6 +146,7 @@ async function searchSyoboi() {
       return `https://cal.syoboi.jp${resultUrl}`
     }
   }
+  return ''
 }
 
 function songType(type) {
@@ -218,15 +226,15 @@ async function getSyoboi() {
   dd(syoboiUrl)
   if(syoboiUrl === 'no result') return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
-  let title = syoboiHtml.match(/<title>([^<]*<\/title>)/)[1]
-
+  let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
+  
   let castData = $($.parseHTML(syoboiHtml)).find('.cast table').html()
-  let cast = castData.match(/<th[^<]*>([^<]*)<\/th><td><wbr><[^<]+>([^<]*)<\/a>/g)
+  let cast = castData?.match(/<th[^<]*>([^<]*)<\/th><td><wbr><[^<]+>([^<]*)<\/a>/g)
     .map(it=>it.split('</th>'))
     .map(it=>({
       char: it[0].replaceAll(/<[^<]+>/g, ''),
       cv: it[1].replaceAll(/<[^<]+>/g, '')
-    }))
+    })) || []
 
   let song = []
   let songData = $($.parseHTML(syoboiHtml)).find('.op, .ed, .st')
@@ -456,4 +464,5 @@ async function main() {
  * [and its cdn](https://cdn.jsdelivr.net/gh/Joe12387/detectIncognito@main/detectIncognito.min.js)
  * [FF observe GM request](https://firefox-source-docs.mozilla.org/devtools-user/browser_toolbox/index.html)
  * [Wiki API](https://ja.wikipedia.org/wiki/特別:ApiSandbox#action=query&format=json&prop=langlinks&titles=Main Page&redirects=1)
+ * [Always use en/decodeURIComponent](https://stackoverflow.com/a/747845)
  */
