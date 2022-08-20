@@ -26,12 +26,14 @@ function titleProcess(title) {
 }
 
 function siteProcess(site) {
+  if(!site) return ''
   return site.split('://')[1].split('/')[0]
 }
 
 function timeProcess(time) {
+  if(!time) return ''
   let [, year, month, date] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
-  return `${year}/${month}/1-`
+  return `${year}-${parseInt(month)}～`
 }
 
 async function getBahaDate() {
@@ -39,8 +41,8 @@ async function getBahaDate() {
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
   let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
   let nameEn = bahaHtml.find('.ACG-mster_box1 > h2')[1].innerText
-  let site = bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0].innerText
-  let time = bahaHtml.find('.ACG-box1listA > li:contains("當地首播")')[0].innerText.split('：')[1]
+  let site = bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.innerText
+  let time = bahaHtml.find('.ACG-box1listA > li:contains("當地")')[0]?.innerText?.split('：')[1]
 
   return {
     nameJp: titleProcess(nameJp),
@@ -49,7 +51,6 @@ async function getBahaDate() {
     time: timeProcess(time),
   }
 }
-let bahaData = await getBahaDate()
 
 async function GET(url) {
   return new Promise((resolve, reject) => {
@@ -121,15 +122,22 @@ async function google(type, keyword) {
   return 'no result'
 }
 
-async function searchSyoboi(site, time) {
-  let url = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=3&rd=${tile}-&v=0`
-  dd(url)
+async function searchSyoboi() {
+  let site = bahaData.site
+  let time = bahaData.time
+  if(!site || !time) return ''
+  let searchUrl = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=0&rd=&v=0`
+  dd(searchUrl)
 
-  let syoboiHtml = (await GET(url)).responseText
-  dd(syoboiHtml)
-  let syoboiResult = $($.parseHTML(syoboiHtml)).find('.tframe a')[0]
-  if(syoboiResult) {
-    dd(syoboiResult)
+  let syoboiHtml = (await GET(searchUrl)).responseText
+  let syoboiResults = $($.parseHTML(syoboiHtml)).find('.tframe td')
+  for (let result of syoboiResults) {
+    let resultTime = $(result).find('.findComment')[0].innerText
+
+    if(resultTime.includes(time)){
+      let resultUrl = $(result).find('a')[0].pathname
+      return `https://cal.syoboi.jp${resultUrl}`
+    }
   }
 }
 
@@ -202,7 +210,6 @@ async function getAllcinema(jpTitle = true) {
 }
 
 async function getSyoboi() {
-  dd('hi', bahaData)
   changeState('syoboi')
 
   let nameJp = bahaData.nameJp
@@ -238,54 +245,61 @@ async function getSyoboi() {
   }
 }
 
-async function getCastHtml(json) {
-  let nameList = json.map(j => j.cv).join('|')
-  let wikiApi = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
-  let wikiJson = JSON.parse((await GET(wikiApi)).responseText)
-  let disamb = _.filter(wikiJson.query.pages, ['pageprops', {disambiguation: ''}])
-  let normalized = wikiJson.query.normalized
+// async function getCastHtml(json) {
+//   let nameList = json.map(j => j.cv).join('|')
+//   let wikiApi = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
+//   let wikiJson = JSON.parse((await GET(wikiApi)).responseText)
+//   let disamb = _.filter(wikiJson.query.pages, ['pageprops', {disambiguation: ''}])
+//   let normalized = wikiJson.query.normalized
 
-  // Deal with wiki page disambiguation.
-  if (disamb.length || normalized){
-    normalized?.forEach((it) => {
-      json.forEach((j,index) => {
-        if (j.cv === it.from || j.cvName2 === it.from){
-          json[index].cvName2 = it.to
-        }
-      })
-      nameList = nameList.replace(it.from, it.to)
-    })
-    disamb.forEach((it) => {
-      json.forEach((j,index) => {
-        if (j.cv === it.title || j.cvName2 === it.title){
-          json[index].cvName2 = `${it.title} (声優)`
-        }
-      })
-      nameList = nameList.replace(it.title, `${it.title} (声優)`)
-    })
-    wikiApi = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
-    wikiJson = JSON.parse((await GET(wikiApi)).responseText)
-    dd('disamb', disamb, redirect, normalized)
-  }
-  dd(wikiJson)
+//   // Deal with wiki page disambiguation.
+//   if (disamb.length || normalized){
+//     normalized?.forEach((it) => {
+//       json.forEach((j,index) => {
+//         if (j.cv === it.from || j.cvName2 === it.from){
+//           json[index].cvName2 = it.to
+//         }
+//       })
+//       nameList = nameList.replace(it.from, it.to)
+//     })
+//     disamb.forEach((it) => {
+//       json.forEach((j,index) => {
+//         if (j.cv === it.title || j.cvName2 === it.title){
+//           json[index].cvName2 = `${it.title} (声優)`
+//         }
+//       })
+//       nameList = nameList.replace(it.title, `${it.title} (声優)`)
+//     })
+//     wikiApi = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
+//     wikiJson = JSON.parse((await GET(wikiApi)).responseText)
+//     dd('disamb', disamb, redirect, normalized)
+//   }
+//   dd(wikiJson)
 
-  return json.map(j => {
-    dd(j)
-    let wikiPage = _.filter(wikiJson.query.pages, page => 
-      page.title === j.cv || page.title === j.cvName2
-    )[0]
-    let zhName = wikiPage.langlinks?.[0]['*']
-    let wikiUrl = zhName ? `https://zh.wikipedia.org/zh-tw/${zhName}` : `https://ja.wikipedia.org/wiki/${j.cv}`
-    let wikiText = zhName ? 'Wiki' : 'WikiJP'
-    dd(wikiPage)
+//   return json.map(j => {
+//     dd(j)
+//     let wikiPage = _.filter(wikiJson.query.pages, page => 
+//       page.title === j.cv || page.title === j.cvName2
+//     )[0]
+//     let zhName = wikiPage.langlinks?.[0]['*']
+//     let wikiUrl = zhName ? `https://zh.wikipedia.org/zh-tw/${zhName}` : `https://ja.wikipedia.org/wiki/${j.cv}`
+//     let wikiText = zhName ? 'Wiki' : 'WikiJP'
+//     dd(wikiPage)
 
-    return `
-      <div>${j.char ?? ''}</div>
-      <div>${j.cv}</div>
-      ${wikiPage.missing === ''
-        ? '<div></div>'
-        : `<a href="${wikiUrl}" target="_blank">🔗${wikiText}</a>`}
-  `}).join('')
+//     return `
+//       <div>${j.char ?? ''}</div>
+//       <div>${j.cv}</div>
+//       ${wikiPage.missing === ''
+//         ? '<div></div>'
+//         : `<a href="${wikiUrl}" target="_blank">🔗${wikiText}</a>`}
+//   `}).join('')
+// }
+function getCastHtml(json) {
+  return json.map(j=>`
+    <div>${j.char ?? ''}</div>
+    <div>${j.cv}</div>
+    <a href="https://zh.m.wikipedia.org/zh-tw/${j.cv}" target="_blank">🔗Wiki</a>
+  `).join('')
 }
 
 function getSongHtml(json) {
@@ -355,12 +369,18 @@ async function changeState(state, params) {
       $('#ani-info-msg').html(`嘗試取得allcinema資料中...`)
       break
     case 'fail':
-      $('#ani-info-msg').html(`無法取得資料 ${params.error}`)
+      let aa = await searchSyoboi()
+      $('#ani-info-msg').html(`無法取得資料 ${params.error}
+        <br>
+        資料來源(新)：<a href="${aa}" target="_blank">${aa}</a>
+      `)
       break
     case 'result':
       dd(params)
       let castHtml = await getCastHtml(params.cast)
       let songHtml = getSongHtml(params.song)
+      let ss = await searchSyoboi()
+      dd(ss)
       $('#ani-info').html('')
       if(castHtml) $('#ani-info').append(`
         <ul class="data_type">
@@ -383,6 +403,8 @@ async function changeState(state, params) {
           <li>
             <span>aniInfo+</span>
             資料來源：<a href="${params.source}" target="_blank">${params.title}</a>
+            <br>
+            資料來源(新)：<a href="${ss}" target="_blank">${ss}</a>
           </li>
         </ul>
       `)
@@ -407,10 +429,8 @@ async function main() {
   }
 }
 
-
-
-
-(async function() {  
+(async function() {
+  globalThis.bahaData = await getBahaDate()
   changeState('init')
 
   // Set user option default value.
