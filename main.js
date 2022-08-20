@@ -21,21 +21,35 @@ async function isPrivateFF() {
   })
 }
 
-function titleProcess(title){
+function titleProcess(title) {
   return title.replaceAll('-', '\\-').replaceAll('#', '')
 }
 
-async function getAnimeNameJp() {
-  let bahaDbUrl = $('.data_intro .bluebtn')[1].href
-  let animeNameJp = $((await GET(bahaDbUrl)).responseText).find('.ACG-mster_box1 > h2')[0].innerText
-  return titleProcess(animeNameJp)
+function siteProcess(site) {
+  return site.split('://')[1].split('/')[0]
 }
 
-async function getAnimeNameEn() {
-  let bahaDbUrl = $('.data_intro .bluebtn')[1].href
-  let animeNameEn = $((await GET(bahaDbUrl)).responseText).find('.ACG-mster_box1 > h2')[1].innerText
-  return titleProcess(animeNameEn)
+function timeProcess(time) {
+  let [, year, month, date] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
+  return `${year}/${month}/1-`
 }
+
+async function getBahaDate() {
+  let bahaDbUrl = $('.data_intro .bluebtn')[1].href
+  let bahaHtml = $((await GET(bahaDbUrl)).responseText)
+  let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
+  let nameEn = bahaHtml.find('.ACG-mster_box1 > h2')[1].innerText
+  let site = bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0].innerText
+  let time = bahaHtml.find('.ACG-box1listA > li:contains("當地首播")')[0].innerText.split('：')[1]
+
+  return {
+    nameJp: titleProcess(nameJp),
+    nameEn: titleProcess(nameEn),
+    site: siteProcess(site),
+    time: timeProcess(time),
+  }
+}
+let bahaData = await getBahaDate()
 
 async function GET(url) {
   return new Promise((resolve, reject) => {
@@ -108,7 +122,15 @@ async function google(type, keyword) {
 }
 
 async function searchSyoboi(site, time) {
-  let url = ``
+  let url = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=3&rd=${tile}-&v=0`
+  dd(url)
+
+  let syoboiHtml = (await GET(url)).responseText
+  dd(syoboiHtml)
+  let syoboiResult = $($.parseHTML(syoboiHtml)).find('.tframe a')[0]
+  if(syoboiResult) {
+    dd(syoboiResult)
+  }
 }
 
 function songType(type) {
@@ -129,7 +151,7 @@ function songType(type) {
 async function getAllcinema(jpTitle = true) {
   changeState('allcinema')
 
-  let animeName = jpTitle ? await getAnimeNameJp() : await getAnimeNameEn()
+  let animeName = jpTitle ? bahaData.nameJp : bahaData.nameEn
   if (animeName === '') return null
   let allcinemaUrl = await google('allcinema', animeName)
   dd(allcinemaUrl)
@@ -180,11 +202,12 @@ async function getAllcinema(jpTitle = true) {
 }
 
 async function getSyoboi() {
+  dd('hi', bahaData)
   changeState('syoboi')
 
-  let animeNameJp = await getAnimeNameJp()
-  if (animeNameJp === '') return null
-  let syoboiUrl = await google('syoboi', animeNameJp)
+  let nameJp = bahaData.nameJp
+  if (nameJp === '') return null
+  let syoboiUrl = await google('syoboi', nameJp)
   dd(syoboiUrl)
   if(syoboiUrl === 'no result') return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
@@ -384,7 +407,10 @@ async function main() {
   }
 }
 
-(async function() {
+
+
+
+(async function() {  
   changeState('init')
 
   // Set user option default value.
