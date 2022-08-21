@@ -26,12 +26,12 @@ function titleProcess(title) {
 }
 
 function siteProcess(site) {
-  if(!site) return ''
-  return site.split('://')[1].split('/')[0]
+  if(!site || site === 'undefined') return ''
+  return site.split('://')[1].replace('www.', '').split('/')[0]
 }
 
 function timeProcess(time) {
-  if(!time) return ''
+  if(!time || time === '不明') return ''
   let [, year, month, date] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
   return `${year}-${parseInt(month)}～`
 }
@@ -127,11 +127,12 @@ async function searchSyoboi() {
   let site = bahaData.site
   let time = bahaData.time
   if(!site || !time) return ''
-  if(['www.tv-tokyo.co.jp', 'www.tbs.co.jp'].includes(site)){
-    site = bahaData.fullUrl.match(/(www.tv-tokyo.co.jp\/anime\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(www.tv-tokyo.co.jp\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(www.tbs.co.jp\/anime\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(www.tbs.co.jp\/[^\/]+)/)?.[1] || ''
+  if(['tv-tokyo.co.jp', 'tbs.co.jp', 'sunrise-inc.co.jp'].includes(site)){
+    site = bahaData.fullUrl.match(/(tv-tokyo.co.jp\/anime\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(tv-tokyo.co.jp\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(tbs.co.jp\/anime\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(tbs.co.jp\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(sunrise-inc.co.jp\/[^\/]+)/)?.[1] || ''
   }
   let searchUrl = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=0&rd=&v=0`
   dd(searchUrl)
