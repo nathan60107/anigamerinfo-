@@ -146,7 +146,7 @@ async function searchSyoboi() {
     let resultTime = $(result).find('.findComment')[0].innerText
 
     if(resultTime.includes(time)){
-      let resultUrl = $(result).find('a')[0].pathname
+      let resultUrl = $(result).find('a').attr('href')
       return `https://cal.syoboi.jp${resultUrl}`
     }
   }
