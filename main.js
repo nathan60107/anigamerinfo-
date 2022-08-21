@@ -101,12 +101,15 @@ function getJson(str) {
 
 async function google(type, keyword) {
   let site = ''
+  let match = ''
   switch (type) {
     case 'syoboi':
       site = 'https://cal.syoboi.jp/tid'
+      match = 'https://cal.syoboi.jp/tid'
       break
     case 'allcinema':
       site = 'https://www.allcinema.net/cinema/'
+      match = /https:\/\/www.allcinema.net\/cinema\/([0-9]{1,7})/
       break
   }
 
@@ -118,7 +121,7 @@ async function google(type, keyword) {
   let googleResult = $($.parseHTML(googleHtml)).find('#res .v7W49e a')
   for(let goo of googleResult) {
     let link = goo.href.replace('http://', 'https://')
-    if(link.startsWith(site))return link
+    if(link.match(match))return link
   }
   return 'no result'
 }
@@ -218,14 +221,13 @@ async function getAllcinema(jpTitle = true) {
   }
 }
 
-async function getSyoboi() {
+async function getSyoboi(searchGoogle = false) {
   changeState('syoboi')
 
   let nameJp = bahaData.nameJp
   if (nameJp === '') return null
-  let syoboiUrl = await google('syoboi', nameJp)
-  dd(syoboiUrl)
-  if(syoboiUrl === 'no result') return null
+  let syoboiUrl = await (searchGoogle ? google('syoboi', nameJp) : searchSyoboi())
+  if(!syoboiUrl || syoboiUrl === 'no result') return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
   let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
   
@@ -385,11 +387,9 @@ async function changeState(state, params) {
       `)
       break
     case 'result':
-      dd(params)
       let castHtml = await getCastHtml(params.cast)
       let songHtml = getSongHtml(params.song)
       let ss = await searchSyoboi()
-      dd(ss)
       $('#ani-info').html('')
       if(castHtml) $('#ani-info').append(`
         <ul class="data_type">
@@ -418,14 +418,43 @@ async function changeState(state, params) {
         </ul>
       `)
       break
+    case 'debug':
+      let aaa = await getSyoboi()
+      let bbb = await getSyoboi(true)
+      let ccc = await getAllcinema()
+      let ddd = await getAllcinema(false)
+      $('#ani-info').html('')
+      $('#ani-info').append(`
+        <ul class="data_type">
+          <li>
+            <span>aniInfo+</span>
+            <br>
+            syoboi：<a href="${aaa?.source}" target="_blank">${aaa?.title}</a>
+            <br>
+            allcinema(jp)：<a href="${ccc?.source}" target="_blank">${ccc?.title}</a>
+            <br>
+            allcinema(en)：<a href="${ddd?.source}" target="_blank">${ddd?.title}</a>
+            <br>
+            syoboi(google)：<a href="${bbb?.source}" target="_blank">${bbb?.title}</a>
+            <br>
+          </li>
+        </ul>
+      `)
+      break
   }
 }
 
 async function main() {
+  let debug = true
   try {
-    let result = await getSyoboi()
-    if (!result) result = await getAllcinema()
+    if(debug){
+      changeState('debug')
+      return
+    }
+    let result = await getSyoboi(false)
+    if (!result) result = await getAllcinema(true)
     if (!result) result = await getAllcinema(false)
+    if (!result) result = await getSyoboi(true)
     
     if (result) changeState('result', result)
     else changeState('fail', {error: ''})
