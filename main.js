@@ -213,7 +213,7 @@ async function getAllcinema(jpTitle = true) {
       filter(job=>job.job.jobname.includes('歌'))
       [0].persons[0].person.personnamemain.personname
   }))
-  dd(castJson, songJson)
+  // dd(castJson, songJson)
 
   return {
     source: allcinemaUrl,
@@ -227,6 +227,7 @@ async function getSyoboi(searchGoogle = false) {
   let nameJp = bahaData.nameJp
   if (nameJp === '') return null
   let syoboiUrl = await (searchGoogle ? google('syoboi', nameJp) : searchSyoboi())
+  dd(syoboiUrl)
   if(!syoboiUrl || syoboiUrl === 'no result') return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
   let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
@@ -248,7 +249,7 @@ async function getSyoboi(searchGoogle = false) {
       singer: $(sd).find('th:contains("歌")').parent().children()[1]?.innerText,
     })
   }
-  dd(songData)
+  // dd(songData)
 
   return {
     source: syoboiUrl,
@@ -380,16 +381,11 @@ async function changeState(state, params) {
       $('#ani-info-msg').html(`嘗試取得allcinema資料中...`)
       break
     case 'fail':
-      let aa = await searchSyoboi()
-      $('#ani-info-msg').html(`無法取得資料 ${params.error}
-        <br>
-        資料來源(新)：<a href="${aa}" target="_blank">${aa}</a>
-      `)
+      $('#ani-info-msg').html(`無法取得資料 ${params.error}`)
       break
     case 'result':
       let castHtml = await getCastHtml(params.cast)
       let songHtml = getSongHtml(params.song)
-      let ss = await searchSyoboi()
       $('#ani-info').html('')
       if(castHtml) $('#ani-info').append(`
         <ul class="data_type">
@@ -412,8 +408,6 @@ async function changeState(state, params) {
           <li>
             <span>aniInfo+</span>
             資料來源：<a href="${params.source}" target="_blank">${params.title}</a>
-            <br>
-            資料來源(新)：<a href="${ss}" target="_blank">${ss}</a>
           </li>
         </ul>
       `)
@@ -445,7 +439,7 @@ async function changeState(state, params) {
 }
 
 async function main() {
-  let debug = true
+  let debug = false
   try {
     if(debug){
       changeState('debug')
