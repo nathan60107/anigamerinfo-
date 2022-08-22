@@ -9,6 +9,7 @@ var detectIncognito=function(){return new Promise(function(t,o){var e,n="Unknown
 
 let $ = jQuery
 let dd = (...d) => {
+  if(BAHAID !== 'nathan60107')return
   d.forEach((it)=>{console.log(it)})
 }
 
@@ -26,7 +27,7 @@ function titleProcess(title) {
 }
 
 function siteProcess(site) {
-  if(!site || site === 'undefined') return ''
+  if(!site) return ''
   return site.split('://')[1].replace('www.', '').split('/')[0]
 }
 
@@ -41,7 +42,7 @@ async function getBahaDate() {
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
   let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
   let nameEn = bahaHtml.find('.ACG-mster_box1 > h2')[1].innerText
-  let site = decodeURIComponent(bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.href?.match(/url=(.+)/)[1])
+  let site = decodeURIComponent(bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.href?.match(/url=(.+)/)[1] ?? '')
   let time = bahaHtml.find('.ACG-box1listA > li:contains("當地")')[0]?.innerText?.split('：')[1]
 
   return {
@@ -114,7 +115,7 @@ async function google(type, keyword) {
   }
 
   let googleUrl = `https://www.google.com/search?as_q=${keyword}&as_qdr=all&as_sitesearch=${site}&as_occt=any`
-  dd(googleUrl)
+  dd(`Google result: ${googleUrl}`)
 
   let googleHtml = (await GET(googleUrl)).responseText
   if (googleHtml.includes('為何顯示此頁')) throw { type: 'google', url: googleUrl }
@@ -123,7 +124,7 @@ async function google(type, keyword) {
     let link = goo.href.replace('http://', 'https://')
     if(link.match(match))return link
   }
-  return 'no result'
+  return ''
 }
 
 async function searchSyoboi() {
@@ -138,7 +139,7 @@ async function searchSyoboi() {
       bahaData.fullUrl.match(/(sunrise-inc.co.jp\/[^\/]+)/)?.[1] || ''
   }
   let searchUrl = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=0&rd=&v=0`
-  dd(searchUrl)
+  dd(`Syoboi result: ${searchUrl}`)
 
   let syoboiHtml = (await GET(searchUrl)).responseText
   let syoboiResults = $($.parseHTML(syoboiHtml)).find('.tframe td')
@@ -174,8 +175,8 @@ async function getAllcinema(jpTitle = true) {
   let animeName = jpTitle ? bahaData.nameJp : bahaData.nameEn
   if (animeName === '') return null
   let allcinemaUrl = await google('allcinema', animeName)
-  dd(allcinemaUrl)
-  if(allcinemaUrl === 'no result') return null
+  dd(`Allcinema url: ${allcinemaUrl}`)
+  if(!allcinemaUrl) return null
 
   let allcinemaId = allcinemaUrl.match(/https:\/\/www.allcinema.net\/cinema\/([0-9]{1,7})/)[1]
   let allcinemaHtml = (await GET(allcinemaUrl))
@@ -206,13 +207,14 @@ async function getAllcinema(jpTitle = true) {
     page_limit: 10
   }, allcinemaHeader)
   let songJson = getJson(songData.responseText)
-  let song = songJson.moviesounds.sounds.map(it=>({
-    type: songType(it.sound.usetype),
-    title: `「${it.sound.soundtitle}」`,
-    singer: it.sound.credit.staff.jobs.
-      filter(job=>job.job.jobname.includes('歌'))
-      [0].persons[0].person.personnamemain.personname
-  }))
+  let song = songJson.moviesounds.sounds.map(it=>{
+    return {
+      type: songType(it.sound.usetype),
+      title: `「${it.sound.soundtitle}」`,
+      singer: it.sound.credit.staff.jobs.
+        filter(job=>job.job.jobname.includes('歌'))
+        [0]?.persons[0].person.personnamemain.personname
+  }})
   // dd(castJson, songJson)
 
   return {
@@ -227,8 +229,8 @@ async function getSyoboi(searchGoogle = false) {
   let nameJp = bahaData.nameJp
   if (nameJp === '') return null
   let syoboiUrl = await (searchGoogle ? google('syoboi', nameJp) : searchSyoboi())
-  dd(syoboiUrl)
-  if(!syoboiUrl || syoboiUrl === 'no result') return null
+  dd(`Syoboi url: ${syoboiUrl}`)
+  if(!syoboiUrl) return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
   let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
   
@@ -445,7 +447,8 @@ async function main() {
       changeState('debug')
       return
     }
-    let result = await getSyoboi(false)
+    let result = null
+    result = await getSyoboi(false)
     if (!result) result = await getAllcinema(true)
     if (!result) result = await getAllcinema(false)
     if (!result) result = await getSyoboi(true)

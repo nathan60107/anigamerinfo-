@@ -73,6 +73,39 @@ https://ani.gamer.com.tw/animeVideo.php?sn=26998
 
 
 
-首播時間不明
-UQ HOLDER！悠久持有者！-Amor Primus ～初戀～
+可靠性測試
+步驟分析
+1. 影片->db->網站與當地時間->search syoboi->syoboi
+2. 影片->db->日英文片名->search google->syoboi或allcinema
+3. syoboi->cast song
+4. allcinema->cast song
+
+可能不存在的資源
+1. DB本身?
+沒見過
+2. 網站 => bahaData.site 及 bahaData.fullUrl空字串
+https://acg.gamer.com.tw/acgDetail.php?s=122635
+3. 時間 => bahaData.time空字串
+https://ani.gamer.com.tw/animeVideo.php?sn=8716 內容寫著不明 而且只有當地發售沒有當地首播
+4. 日文片名 => bahaData.nameJp空字串
 https://ani.gamer.com.tw/animeVideo.php?sn=8716
+5. 英文片名 => bahaData.nameEn空字串
+https://ani.gamer.com.tw/animeVideo.php?sn=8716
+6. search syoboi的結果 => searchSyoboi回傳空字串
+https://ani.gamer.com.tw/animeVideo.php?sn=30863
+7. google的結果 => google回傳空字串
+https://ani.gamer.com.tw/animeVideo.php?sn=20332
+8. syoboi的cast => getSyoboi().cast為[]
+https://ani.gamer.com.tw/animeVideo.php?sn=25612
+9. syoboi的song => getSyoboi().song為[]
+https://ani.gamer.com.tw/animeVideo.php?sn=25612
+9.1. syoboi的song的歌手從缺 => 
+https://ani.gamer.com.tw/animeVideo.php?sn=30878
+10. allcinema的cast
+找不到
+11. allcinema的song
+https://ani.gamer.com.tw/animeVideo.php?sn=31044 無歌
+11.1. allcinema的song的歌手從缺 => getAllcinema().song[i].singer為undefined
+https://ani.gamer.com.tw/animeVideo.php?sn=5408
+
+首播時間不明
