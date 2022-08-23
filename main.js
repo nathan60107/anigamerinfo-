@@ -251,7 +251,7 @@ async function getSyoboi(searchGoogle = false) {
       singer: $(sd).find('th:contains("歌")').parent().children()[1]?.innerText,
     })
   }
-  // dd(songData)
+  // dd(song)
 
   return {
     source: syoboiUrl,
@@ -259,61 +259,59 @@ async function getSyoboi(searchGoogle = false) {
   }
 }
 
-// async function getCastHtml(json) {
-//   let nameList = json.map(j => j.cv).join('|')
-//   let wikiApi = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
-//   let wikiJson = JSON.parse((await GET(wikiApi)).responseText)
-//   let disamb = _.filter(wikiJson.query.pages, ['pageprops', {disambiguation: ''}])
-//   let normalized = wikiJson.query.normalized
+async function getCastHtml(json) {
+  function replaceEach(array, getFrom = (it)=>it.from, getTo = (it)=>it.to) {
+    array?.forEach((it) => {
+      json.forEach((j, index) => {
+        if (j.cv === getFrom(it) || j.cvName2 === getFrom(it)){
+          json[index].cvName2 = getTo(it)
+        }
+      })
+      nameList = nameList.replace(getFrom(it), getTo(it))
+    })
+  }
+  let searchWikiUrl = (nameList) => 
+    `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&redirects=1&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
 
-//   // Deal with wiki page disambiguation.
-//   if (disamb.length || normalized){
-//     normalized?.forEach((it) => {
-//       json.forEach((j,index) => {
-//         if (j.cv === it.from || j.cvName2 === it.from){
-//           json[index].cvName2 = it.to
-//         }
-//       })
-//       nameList = nameList.replace(it.from, it.to)
-//     })
-//     disamb.forEach((it) => {
-//       json.forEach((j,index) => {
-//         if (j.cv === it.title || j.cvName2 === it.title){
-//           json[index].cvName2 = `${it.title} (声優)`
-//         }
-//       })
-//       nameList = nameList.replace(it.title, `${it.title} (声優)`)
-//     })
-//     wikiApi = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
-//     wikiJson = JSON.parse((await GET(wikiApi)).responseText)
-//     dd('disamb', disamb, redirect, normalized)
-//   }
-//   dd(wikiJson)
 
-//   return json.map(j => {
-//     dd(j)
-//     let wikiPage = _.filter(wikiJson.query.pages, page => 
-//       page.title === j.cv || page.title === j.cvName2
-//     )[0]
-//     let zhName = wikiPage.langlinks?.[0]['*']
-//     let wikiUrl = zhName ? `https://zh.wikipedia.org/zh-tw/${zhName}` : `https://ja.wikipedia.org/wiki/${j.cv}`
-//     let wikiText = zhName ? 'Wiki' : 'WikiJP'
-//     dd(wikiPage)
+  let nameList = json.map(j => j.cv).join('|')
+  let wikiApi = searchWikiUrl(nameList)
+  let wikiJson = JSON.parse((await GET(wikiApi)).responseText)
+  let disamb = _.filter(wikiJson.query.pages, ['pageprops', {disambiguation: ''}])
+  let normalized = wikiJson.query.normalized
+  let redirects = wikiJson.query.redirects
+  dd(nameList, wikiJson, normalized, redirects, disamb)
 
-//     return `
-//       <div>${j.char ?? ''}</div>
-//       <div>${j.cv}</div>
-//       ${wikiPage.missing === ''
-//         ? '<div></div>'
-//         : `<a href="${wikiUrl}" target="_blank">🔗${wikiText}</a>`}
-//   `}).join('')
-// }
-function getCastHtml(json) {
-  return json.map(j=>`
-    <div>${j.char ?? ''}</div>
-    <div>${j.cv}</div>
-    <a href="https://zh.m.wikipedia.org/zh-tw/${j.cv}" target="_blank">🔗Wiki</a>
-  `).join('')
+  // Deal with wiki page normalized, redirects and disambiguation.
+  replaceEach(normalized)
+  replaceEach(redirects)
+  if (disamb.length) {
+    replaceEach(disamb, (it)=>it.title, (it)=>`${it.title} (声優)`)
+
+    wikiApi = searchWikiUrl(nameList)
+    wikiJson = JSON.parse((await GET(wikiApi)).responseText)
+    redirects = wikiJson.query.redirects
+    replaceEach(redirects)
+  }
+  // dd(wikiJson)
+
+  return json.map(j => {
+    // dd(j)
+    let wikiPage = _.filter(wikiJson.query.pages, page => 
+      page.title === j.cv || page.title === j.cvName2
+    )[0]
+    // dd(wikiPage)
+    let zhName = wikiPage.langlinks?.[0]['*']
+    let wikiUrl = zhName ? `https://zh.wikipedia.org/zh-tw/${zhName}` : `https://ja.wikipedia.org/wiki/${j.cvName2 ?? j.cv}`
+    let wikiText = zhName ? 'Wiki' : 'WikiJP'
+
+    return `
+      <div>${j.char ?? ''}</div>
+      <div>${j.cv}</div>
+      ${wikiPage.missing === ''
+        ? '<div></div>'
+        : `<a href="${wikiUrl}" target="_blank">🔗${wikiText}</a>`}
+  `}).join('')
 }
 
 function getSongHtml(json) {
@@ -490,6 +488,6 @@ async function main() {
  * [Detect browser private mode](https://stackoverflow.com/a/69678895/13069889)
  * [and its cdn](https://cdn.jsdelivr.net/gh/Joe12387/detectIncognito@main/detectIncognito.min.js)
  * [FF observe GM request](https://firefox-source-docs.mozilla.org/devtools-user/browser_toolbox/index.html)
- * [Wiki API](https://ja.wikipedia.org/wiki/特別:ApiSandbox#action=query&format=json&prop=langlinks&titles=Main Page&redirects=1)
+ * [Wiki API](https://ja.wikipedia.org/wiki/%E7%89%B9%E5%88%A5:ApiSandbox#action=query&format=json&prop=langlinks%7Cpageprops&titles=%E4%B8%AD%E5%B3%B6%E7%94%B1%E8%B2%B4%20(%E5%A3%B0%E5%84%AA)&lllang=zh&llinlanguagecode=ja&lllimit=100&ppcontinue=&ppprop=disambiguation)
  * [Always use en/decodeURIComponent](https://stackoverflow.com/a/747845)
  */

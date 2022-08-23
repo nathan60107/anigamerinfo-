@@ -79,8 +79,32 @@ https://ani.gamer.com.tw/animeVideo.php?sn=26998
 2. 影片->db->日英文片名->search google->syoboi或allcinema
 3. syoboi->cast song
 4. allcinema->cast song
+5. cast->wikiAPI
 
-可能不存在的資源
+wikiAPI的三種例外分析
+1. redirects
+範例: https://ani.gamer.com.tw/animeVideo.php?sn=28950
+傳小桜エツ子呼叫API後
+redirects出現{from: '小桜エツ子', to: '小桜エツコ'}
+而pages裡面是直接title: 小桜エツコ
+因此redirects可以不用重新呼叫API
+但是要進行替換名字才能查詢到正確的值
+
+2. normalized(同redirects)
+
+3. redirects與normalized同時出現的話會哪個先套用
+範例: https://ani.gamer.com.tw/animeVideo.php?sn=28950
+送出API前將會被重新導向的'小桜エツ子'替換為'小桜エツ子   '進行查詢
+結果是
+normalized: {from: '小桜エツ子    ', to: '小桜エツ子'}
+redirects: {from: '小桜エツ子', to: '小桜エツコ'}
+因此應當先套用normalized再套用redirects
+
+4. disambiguation 與 normalized
+同3.先做 normalized
+
+
+檢查可能不存在的資源
 1. DB本身?
 沒見過
 2. 網站 => bahaData.site 及 bahaData.fullUrl空字串
@@ -99,7 +123,7 @@ https://ani.gamer.com.tw/animeVideo.php?sn=20332
 https://ani.gamer.com.tw/animeVideo.php?sn=25612
 9. syoboi的song => getSyoboi().song為[]
 https://ani.gamer.com.tw/animeVideo.php?sn=25612
-9.1. syoboi的song的歌手從缺 => 
+9.1. syoboi的song的歌手從缺 => getSyoboi().song[i].singer為undefined
 https://ani.gamer.com.tw/animeVideo.php?sn=30878
 10. allcinema的cast
 找不到
@@ -107,5 +131,25 @@ https://ani.gamer.com.tw/animeVideo.php?sn=30878
 https://ani.gamer.com.tw/animeVideo.php?sn=31044 無歌
 11.1. allcinema的song的歌手從缺 => getAllcinema().song[i].singer為undefined
 https://ani.gamer.com.tw/animeVideo.php?sn=5408
+12. wikiAPI
+12.1.1 僅具有disambiguation並且有成功找到日文頁面與中文頁面 => 名字後面加上" (声優)"後繼續搜尋 => 顯示中文頁面
+https://ani.gamer.com.tw/animeVideo.php?sn=30968 水島裕
+12.1.2 僅具有disambiguation並且有成功找到日文頁面但沒有中文頁面 => 顯示日文頁面
+https://ani.gamer.com.tw/animeVideo.php?sn=30863 佐藤恵
+12.1.3 僅具有disambiguation並且沒有找到日文頁面 => wiki連結從缺
+https://ani.gamer.com.tw/animeVideo.php?sn=29975 中村勘九郎
+12.1.4 僅具有disambiguation並且消歧後又有重新導向
+https://ani.gamer.com.tw/animeVideo.php?sn=30785 チョー => チョー (声優) => チョー (俳優)
+12.2. 僅具有normalized
+https://ani.gamer.com.tw/animeVideo.php?sn=30940 " 和氣あず未" => 和氣あず未
+12.3. 同時具有 disambiguation 與 normalized => 先 normalized 後 disambiguation
+把任何有 disambiguation 名字加上空格測試
+12.4. 同時具有redirects與normalized => 先 normalized 後 redirects
+把任何有 redirects 名字加上空格測試
+12.5. 僅具有redirect
+https://ani.gamer.com.tw/animeVideo.php?sn=30785 M・A・O => 市道真央
+12.6. 聲優個人頁面從缺
+https://ani.gamer.com.tw/animeVideo.php?sn=30682 蘭笛
+12.
 
 首播時間不明
