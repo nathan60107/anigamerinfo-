@@ -104,7 +104,7 @@ redirects: {from: '小桜エツ子', to: '小桜エツコ'}
 同3.先做 normalized
 
 
-檢查可能不存在的資源
+檢查可能不存在或出錯的資源
 1. DB本身?
 沒見過
 2. 網站 => bahaData.site 及 bahaData.fullUrl空字串
@@ -121,6 +121,8 @@ https://ani.gamer.com.tw/animeVideo.php?sn=30863
 https://ani.gamer.com.tw/animeVideo.php?sn=20332
 8. syoboi的cast => getSyoboi().cast為[]
 https://ani.gamer.com.tw/animeVideo.php?sn=25612
+8.1. syoboi的cast有多張表需要分析
+https://ani.gamer.com.tw/animeVideo.php?sn=28901
 9. syoboi的song => getSyoboi().song為[]
 https://ani.gamer.com.tw/animeVideo.php?sn=25612
 9.1. syoboi的song的歌手從缺 => getSyoboi().song[i].singer為undefined

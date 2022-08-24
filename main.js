@@ -234,13 +234,14 @@ async function getSyoboi(searchGoogle = false) {
   let syoboiHtml = (await GET(syoboiUrl)).responseText
   let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
   
-  let castData = $($.parseHTML(syoboiHtml)).find('.cast table').html()
-  let cast = castData?.match(/<th[^<]*>([^<]*)<\/th><td><wbr><[^<]+>([^<]*)<\/a>/g)
-    .map(it=>it.split('</th>'))
-    .map(it=>({
-      char: it[0].replaceAll(/<[^<]+>/g, ''),
-      cv: it[1].replaceAll(/<[^<]+>/g, '')
-    })) || []
+  let cast = []
+  let castData = $($.parseHTML(syoboiHtml)).find('.cast table tr')
+  for(let role of castData){
+    cast.push({
+      char: $(role).find('th').text(),
+      cv: $(role).find('td > a').text()
+    })
+  }
 
   let song = []
   let songData = $($.parseHTML(syoboiHtml)).find('.op, .ed, .st')
@@ -251,12 +252,37 @@ async function getSyoboi(searchGoogle = false) {
       singer: $(sd).find('th:contains("歌")').parent().children()[1]?.innerText,
     })
   }
-  // dd(song)
 
   return {
     source: syoboiUrl,
     title, cast, song
   }
+}
+
+async function searchWiki(json) {
+  let searchWikiUrl = (nameList) => 
+    `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&redirects=1&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
+
+  let castList = _.chunk(_.uniq(json.map(j => j.cvName2 ?? j.cv)), 50)  
+  let result = {
+    query: {
+      pages: {},
+      normalized: [],
+      redirects: [],
+    }
+  }
+
+  for(let cast50 of castList){
+    let nameList = cast50.join('|')
+    let wikiApi = searchWikiUrl(nameList)
+    let wikiJson = JSON.parse((await GET(wikiApi)).responseText)
+
+    Object.assign(result.query.pages, wikiJson.query.pages)
+    result.query.normalized.push(...wikiJson.query.normalized || [])
+    result.query.redirects.push(...wikiJson.query.redirects || [])
+  }
+
+  return result
 }
 
 async function getCastHtml(json) {
@@ -267,20 +293,14 @@ async function getCastHtml(json) {
           json[index].cvName2 = getTo(it)
         }
       })
-      nameList = nameList.replace(getFrom(it), getTo(it))
     })
   }
-  let searchWikiUrl = (nameList) => 
-    `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&redirects=1&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
 
-
-  let nameList = json.map(j => j.cv).join('|')
-  let wikiApi = searchWikiUrl(nameList)
-  let wikiJson = JSON.parse((await GET(wikiApi)).responseText)
+  let wikiJson = await searchWiki(json)
   let disamb = _.filter(wikiJson.query.pages, ['pageprops', {disambiguation: ''}])
   let normalized = wikiJson.query.normalized
   let redirects = wikiJson.query.redirects
-  dd(nameList, wikiJson, normalized, redirects, disamb)
+  dd(wikiJson, normalized, redirects, disamb)
 
   // Deal with wiki page normalized, redirects and disambiguation.
   replaceEach(normalized)
@@ -288,19 +308,15 @@ async function getCastHtml(json) {
   if (disamb.length) {
     replaceEach(disamb, (it)=>it.title, (it)=>`${it.title} (声優)`)
 
-    wikiApi = searchWikiUrl(nameList)
-    wikiJson = JSON.parse((await GET(wikiApi)).responseText)
+    wikiJson = await searchWiki(json)
     redirects = wikiJson.query.redirects
     replaceEach(redirects)
   }
-  // dd(wikiJson)
 
   return json.map(j => {
-    // dd(j)
     let wikiPage = _.filter(wikiJson.query.pages, page => 
       page.title === j.cv || page.title === j.cvName2
     )[0]
-    // dd(wikiPage)
     let zhName = wikiPage.langlinks?.[0]['*']
     let wikiUrl = zhName ? `https://zh.wikipedia.org/zh-tw/${zhName}` : `https://ja.wikipedia.org/wiki/${j.cvName2 ?? j.cv}`
     let wikiText = zhName ? 'Wiki' : 'WikiJP'
