@@ -37,7 +37,7 @@ function timeProcess(time) {
   return `${year}-${parseInt(month)}～`
 }
 
-async function getBahaDate() {
+async function getBahaData() {
   let bahaDbUrl = $('.data_intro .bluebtn')[1].href
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
   let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
@@ -95,7 +95,7 @@ function getJson(str) {
   try{
     return JSON.parse(str)
   }catch{
-    console.log('josn error')
+    console.log('json error')
     return {}
   }
 }
@@ -110,7 +110,7 @@ async function google(type, keyword) {
       break
     case 'allcinema':
       site = 'https://www.allcinema.net/cinema/'
-      match = /https:\/\/www.allcinema.net\/cinema\/([0-9]{1,7})/
+      match = /https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/
       break
   }
 
@@ -132,11 +132,11 @@ async function searchSyoboi() {
   let time = bahaData.time
   if(!site || !time) return ''
   if(['tv-tokyo.co.jp', 'tbs.co.jp', 'sunrise-inc.co.jp'].includes(site)){
-    site = bahaData.fullUrl.match(/(tv-tokyo.co.jp\/anime\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(tv-tokyo.co.jp\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(tbs.co.jp\/anime\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(tbs.co.jp\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(sunrise-inc.co.jp\/[^\/]+)/)?.[1] || ''
+    site = bahaData.fullUrl.match(/(tv-tokyo\.co\.jp\/anime\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(tv-tokyo\.co\.jp\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(tbs\.co\.jp\/anime\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(tbs\.co\.jp\/[^\/]+)/)?.[1] ||
+      bahaData.fullUrl.match(/(sunrise-inc\.co\.jp\/[^\/]+)/)?.[1] || ''
   }
   let searchUrl = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=0&rd=&v=0`
   dd(`Syoboi result: ${searchUrl}`)
@@ -178,7 +178,7 @@ async function getAllcinema(jpTitle = true) {
   dd(`Allcinema url: ${allcinemaUrl}`)
   if(!allcinemaUrl) return null
 
-  let allcinemaId = allcinemaUrl.match(/https:\/\/www.allcinema.net\/cinema\/([0-9]{1,7})/)[1]
+  let allcinemaId = allcinemaUrl.match(/https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/)[1]
   let allcinemaHtml = (await GET(allcinemaUrl))
   let title = allcinemaHtml.responseText.match(/<title>([^<]*<\/title>)/)[1]
 
@@ -479,7 +479,7 @@ async function main() {
 }
 
 (async function() {
-  globalThis.bahaData = await getBahaDate()
+  globalThis.bahaData = await getBahaData()
   changeState('init')
 
   // Set user option default value.
