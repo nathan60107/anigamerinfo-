@@ -257,7 +257,7 @@ async function getSyoboi(searchGoogle = false) {
   }
 
   let song = []
-  let songData = $($.parseHTML(syoboiHtml)).find('.op, .ed, .st')
+  let songData = $($.parseHTML(syoboiHtml)).find('.staff ~ .section:not(.cast)') // https://stackoverflow.com/a/42575222
   for(let sd of songData){
     song.push({
       type: songType(sd.className),
@@ -282,6 +282,7 @@ async function searchWiki(json) {
       titles: nameList,
       redirects: 1,
       lllang: 'zh',
+      lllimit: 100,
       ppprop: 'disambiguation'
     }
     for(let [k, v] of Object.entries(params)){
@@ -426,7 +427,7 @@ async function changeState(state, params) {
     case 'fail':
       $('#ani-info-msg').html(`無法取得資料 ${params.error}`)
       break
-    case 'result':
+    case 'result': {
       let castHtml = await getCastHtml(params.cast)
       let songHtml = getSongHtml(params.song)
       $('#ani-info').html('')
@@ -455,7 +456,8 @@ async function changeState(state, params) {
         </ul>
       `)
       break
-    case 'debug':
+    }
+    case 'debug': {
       let aaa = await getSyoboi()
       let bbb = await getSyoboi(true)
       let ccc = await getAllcinema()
@@ -478,6 +480,7 @@ async function changeState(state, params) {
         </ul>
       `)
       break
+    }
   }
 }
 
@@ -531,6 +534,6 @@ async function main() {
  * [Detect browser private mode](https://stackoverflow.com/a/69678895/13069889)
  * [and its cdn](https://cdn.jsdelivr.net/gh/Joe12387/detectIncognito@main/detectIncognito.min.js)
  * [FF observe GM request](https://firefox-source-docs.mozilla.org/devtools-user/browser_toolbox/index.html)
- * [Wiki API](https://ja.wikipedia.org/wiki/%E7%89%B9%E5%88%A5:ApiSandbox#action=query&format=json&prop=langlinks%7Cpageprops&titles=%E4%B8%AD%E5%B3%B6%E7%94%B1%E8%B2%B4%20(%E5%A3%B0%E5%84%AA)&lllang=zh&llinlanguagecode=ja&lllimit=100&ppcontinue=&ppprop=disambiguation)
+ * [Wiki API](https://ja.wikipedia.org/wiki/%E7%89%B9%E5%88%A5:ApiSandbox#action=query&format=json&prop=langlinks%7Cpageprops&titles=%E6%A2%B6%E5%8E%9F%E5%B2%B3%E4%BA%BA%7C%E5%B0%8F%E6%9E%97%E8%A3%95%E4%BB%8B%7C%E4%B8%AD%E4%BA%95%E5%92%8C%E5%93%89%7CM%E3%83%BBA%E3%83%BBO%7C%E9%88%B4%E6%9D%91%E5%81%A5%E4%B8%80%7C%E4%B8%8A%E6%A2%9D%E6%B2%99%E6%81%B5%E5%AD%90%7C%E6%A5%A0%E5%A4%A7%E5%85%B8%7C%E8%88%88%E6%B4%A5%E5%92%8C%E5%B9%B8%7C%E6%97%A5%E9%87%8E%E8%81%A1%7C%E9%96%A2%E6%99%BA%E4%B8%80%7C%E6%82%A0%E6%9C%A8%E7%A2%A7%7C%E5%89%8D%E9%87%8E%E6%99%BA%E6%98%AD&redirects=1&lllang=zh&lllimit=100&ppprop=disambiguation)
  * [Always use en/decodeURIComponent](https://stackoverflow.com/a/747845)
  */
