@@ -26,14 +26,9 @@ function titleProcess(title) {
   return title.replaceAll('-', '\\-').replaceAll('#', '')
 }
 
-function siteProcess(site) {
-  if(!site) return ''
-  return site.split('://')[1].replace('www.', '').split('/')[0]
-}
-
 function timeProcess(time) {
   if(!time || time === '不明') return ''
-  let [, year, month, date] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
+  let [, year, month] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
   return `${year}-${parseInt(month)}～`
 }
 
@@ -42,14 +37,15 @@ async function getBahaData() {
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
   let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
   let nameEn = bahaHtml.find('.ACG-mster_box1 > h2')[1].innerText
-  let site = decodeURIComponent(bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.href?.match(/url=(.+)/)[1] ?? '')
+  let urlObj = new URL(bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.href ?? 'https://empty')
+  let fullUrl = urlObj.searchParams.get('url')
   let time = bahaHtml.find('.ACG-box1listA > li:contains("當地")')[0]?.innerText?.split('：')[1]
 
   return {
     nameJp: titleProcess(nameJp),
     nameEn: titleProcess(nameEn),
-    site: siteProcess(site),
-    fullUrl: site,
+    site: fullUrl ? new URL(fullUrl).hostname : '',
+    fullUrl: fullUrl,
     time: timeProcess(time),
   }
 }
@@ -68,17 +64,13 @@ async function GET(url) {
 }
 
 async function POST(url, payload, headers = {}) {
-  let data = []
-  Object.keys(payload).forEach(key => data.push(`${key}=${payload[key]}`))
-  data = data.join('&')
+  let data = new URLSearchParams(payload).toString()
   return new Promise((resolve, reject) => {
     GM_xmlhttpRequest({
       method:  "POST",
       url:     url,
       data:    data,
       headers: {
-        // "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        'Content-Length': data.length,
         ...headers
       },
       onload:   (response)=>{
@@ -114,7 +106,10 @@ async function google(type, keyword) {
       break
   }
 
-  let googleUrl = `https://www.google.com/search?as_q=${keyword}&as_qdr=all&as_sitesearch=${site}&as_occt=any`
+  let googleUrlObj = new URL('https://www.google.com/search?as_qdr=all&as_occt=any')
+  googleUrlObj.searchParams.append('as_q', keyword)
+  googleUrlObj.searchParams.append('as_sitesearch', site)
+  let googleUrl = googleUrlObj.toString()
   dd(`Google result: ${googleUrl}`)
 
   let googleHtml = (await GET(googleUrl)).responseText
@@ -128,8 +123,7 @@ async function google(type, keyword) {
 }
 
 async function searchSyoboi() {
-  let site = bahaData.site
-  let time = bahaData.time
+  let {site, time} = bahaData
   if(!site || !time) return ''
   if(['tv-tokyo.co.jp', 'tbs.co.jp', 'sunrise-inc.co.jp'].includes(site)){
     site = bahaData.fullUrl.match(/(tv-tokyo\.co\.jp\/anime\/[^\/]+)/)?.[1] ||
@@ -138,7 +132,9 @@ async function searchSyoboi() {
       bahaData.fullUrl.match(/(tbs\.co\.jp\/[^\/]+)/)?.[1] ||
       bahaData.fullUrl.match(/(sunrise-inc\.co\.jp\/[^\/]+)/)?.[1] || ''
   }
-  let searchUrl = `https://cal.syoboi.jp/find?sd=0&kw=${site}&ch=&st=&cm=&r=0&rd=&v=0`
+  let searchUrlObj = new URL('https://cal.syoboi.jp/find?sd=0&ch=&st=&cm=&r=0&rd=&v=0')
+  searchUrlObj.searchParams.append('kw', site)
+  let searchUrl = searchUrlObj.toString()
   dd(`Syoboi result: ${searchUrl}`)
 
   let syoboiHtml = (await GET(searchUrl)).responseText
@@ -191,7 +187,6 @@ async function getAllcinema(jpTitle = true) {
       : {}
     ),
     'X-CSRF-TOKEN': allcinemaCsrfToken,
-    Accept: 'application/json, text/javascript, */*; q=0.01',
     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
   }
 
@@ -260,8 +255,22 @@ async function getSyoboi(searchGoogle = false) {
 }
 
 async function searchWiki(json) {
-  let searchWikiUrl = (nameList) => 
-    `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${nameList}&redirects=1&lllang=zh&llinlanguagecode=ja&lllimit=100&ppprop=disambiguation`
+  let searchWikiUrl = (nameList) => {
+    let wikiUrlObj = new URL('https://ja.wikipedia.org/w/api.php')
+    const params = {
+      action: 'query',
+      format: 'json',
+      prop: 'langlinks|pageprops',
+      titles: nameList,
+      redirects: 1,
+      lllang: 'zh',
+      ppprop: 'disambiguation'
+    }
+    for(let [k, v] of Object.entries(params)){
+      wikiUrlObj.searchParams.append(k, v)
+    }
+    return wikiUrlObj.toString()
+  }
 
   let castList = _.chunk(_.uniq(json.map(j => j.cvName2 ?? j.cv)), 50)  
   let result = {
