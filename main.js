@@ -13,6 +13,10 @@ let dd = (...d) => {
   d.forEach((it)=>{console.log(it)})
 }
 
+function regexEscape(pattern) {
+  return pattern.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1')
+}
+
 async function isPrivateFF() {
   return new Promise((resolve) => {
     detectIncognito().then((result) => {
@@ -44,7 +48,7 @@ async function getBahaData() {
   return {
     nameJp: titleProcess(nameJp),
     nameEn: titleProcess(nameEn),
-    site: fullUrl ? new URL(fullUrl).hostname : '',
+    site: fullUrl ? new URL(fullUrl).hostname.replace('www.', '') : '',
     fullUrl: fullUrl,
     time: timeProcess(time),
   }
@@ -123,15 +127,29 @@ async function google(type, keyword) {
 }
 
 async function searchSyoboi() {
-  let {site, time} = bahaData
+  let {site, time, fullUrl} = bahaData
   if(!site || !time) return ''
-  if(['tv-tokyo.co.jp', 'tbs.co.jp', 'sunrise-inc.co.jp'].includes(site)){
-    site = bahaData.fullUrl.match(/(tv-tokyo\.co\.jp\/anime\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(tv-tokyo\.co\.jp\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(tbs\.co\.jp\/anime\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(tbs\.co\.jp\/[^\/]+)/)?.[1] ||
-      bahaData.fullUrl.match(/(sunrise-inc\.co\.jp\/[^\/]+)/)?.[1] || ''
+
+  let exceptionSite = [
+    'tv-tokyo.co.jp',
+    'tbs.co.jp',
+    'sunrise-inc.co.jp'
+  ]
+  if(exceptionSite.includes(site)) {
+    // https://stackoverflow.com/a/33305263
+    let exSiteList = exceptionSite.reduce((acc, cur) => {
+      return acc.concat([regexEscape(`${cur}/anime/`), regexEscape(`${cur}/`)])
+    }, [])
+
+    for (const ex of exSiteList) {
+      let regexResult = fullUrl.match(new RegExp(`(${ex}[^\/]+)`))?.[1]
+      if(regexResult){
+        site = regexResult
+        break
+      }
+    }
   }
+
   let searchUrlObj = new URL('https://cal.syoboi.jp/find?sd=0&ch=&st=&cm=&r=0&rd=&v=0')
   searchUrlObj.searchParams.append('kw', site)
   let searchUrl = searchUrlObj.toString()
