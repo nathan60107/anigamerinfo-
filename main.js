@@ -91,7 +91,7 @@ function getJson(str) {
   try{
     return JSON.parse(str)
   }catch{
-    console.log('json error')
+    dd('json error')
     return {}
   }
 }
@@ -328,7 +328,7 @@ async function getCastHtml(json) {
   let disamb = _.filter(wikiJson.query.pages, ['pageprops', {disambiguation: ''}])
   let normalized = wikiJson.query.normalized
   let redirects = wikiJson.query.redirects
-  dd(wikiJson, normalized, redirects, disamb)
+  // dd(wikiJson, normalized, redirects, disamb)
 
   // Deal with wiki page normalized, redirects and disambiguation.
   replaceEach(normalized)
