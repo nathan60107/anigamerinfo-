@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.0
+// @version      1.0.1
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -280,7 +280,7 @@ async function getSyoboi(searchGoogle = false) {
   }
 
   let song = []
-  let songData = $($.parseHTML(syoboiHtml)).find('.staff ~ .section:not(.cast)') // https://stackoverflow.com/a/42575222
+  let songData = $($.parseHTML(syoboiHtml)).find('.op, .ed, .st, .section:contains("主題歌")') // https://stackoverflow.com/a/42575222
   for (let sd of songData) {
     dd(sd)
     song.push({
