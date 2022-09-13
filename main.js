@@ -1,16 +1,38 @@
+// ==UserScript==
+// @name         動畫瘋資訊+
+// @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
+// @namespace    nathan60107
+// @author       nathan60107(貝果)
+// @version      1.0
+// @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
+// @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
+// @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
+// @require      https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_xmlhttpRequest
+// @connect      google.com
+// @connect      www.allcinema.net
+// @connect      cal.syoboi.jp
+// @connect      acg.gamer.com.tw
+// @connect      ja.wikipedia.org
+// @noframes
+// ==/UserScript==
+
 //---------------------External libarary---------------------//
 /**
  *
  * detectIncognito v1.1.0 - (c) 2022 Joe Rutkowski <Joe@dreggle.com> (https://github.com/Joe12387/detectIncognito)
  *
  **/
-var detectIncognito=function(){return new Promise(function(t,o){var e,n="Unknown";function r(e){t({isPrivate:e,browserName:n})}function i(e){return e===eval.toString().length}function a(){(void 0!==navigator.maxTouchPoints?function(){try{window.indexedDB.open("test",1).onupgradeneeded=function(e){var t=e.target.result;try{t.createObjectStore("test",{autoIncrement:!0}).put(new Blob),r(!1)}catch(e){/BlobURLs are not yet supported/.test(e.message)?r(!0):r(!1)}}}catch(e){r(!1)}}:function(){var e=window.openDatabase,t=window.localStorage;try{e(null,null,null,null)}catch(e){return r(!0),0}try{t.setItem("test","1"),t.removeItem("test")}catch(e){return r(!0),0}r(!1)})()}function c(){navigator.webkitTemporaryStorage.queryUsageAndQuota(function(e,t){r(t<(void 0!==(t=window).performance&&void 0!==t.performance.memory&&void 0!==t.performance.memory.jsHeapSizeLimit?performance.memory.jsHeapSizeLimit:1073741824))},function(e){o(new Error("detectIncognito somehow failed to query storage quota: "+e.message))})}function d(){void 0!==Promise&&void 0!==Promise.allSettled?c():(0,window.webkitRequestFileSystem)(0,1,function(){r(!1)},function(){r(!0)})}void 0!==(e=navigator.vendor)&&0===e.indexOf("Apple")&&i(37)?(n="Safari",a()):void 0!==(e=navigator.vendor)&&0===e.indexOf("Google")&&i(33)?(e=navigator.userAgent,n=e.match(/Chrome/)?void 0!==navigator.brave?"Brave":e.match(/Edg/)?"Edge":e.match(/OPR/)?"Opera":"Chrome":"Chromium",d()):void 0!==document.documentElement&&void 0!==document.documentElement.style.MozAppearance&&i(37)?(n="Firefox",r(void 0===navigator.serviceWorker)):void 0!==navigator.msSaveBlob&&i(39)?(n="Internet Explorer",r(void 0===window.indexedDB)):o(new Error("detectIncognito cannot determine the browser"))})};
+var detectIncognito = function () { return new Promise(function (t, o) { var e, n = "Unknown"; function r(e) { t({ isPrivate: e, browserName: n }) } function i(e) { return e === eval.toString().length } function a() { (void 0 !== navigator.maxTouchPoints ? function () { try { window.indexedDB.open("test", 1).onupgradeneeded = function (e) { var t = e.target.result; try { t.createObjectStore("test", { autoIncrement: !0 }).put(new Blob), r(!1) } catch (e) { /BlobURLs are not yet supported/.test(e.message) ? r(!0) : r(!1) } } } catch (e) { r(!1) } } : function () { var e = window.openDatabase, t = window.localStorage; try { e(null, null, null, null) } catch (e) { return r(!0), 0 } try { t.setItem("test", "1"), t.removeItem("test") } catch (e) { return r(!0), 0 } r(!1) })() } function c() { navigator.webkitTemporaryStorage.queryUsageAndQuota(function (e, t) { r(t < (void 0 !== (t = window).performance && void 0 !== t.performance.memory && void 0 !== t.performance.memory.jsHeapSizeLimit ? performance.memory.jsHeapSizeLimit : 1073741824)) }, function (e) { o(new Error("detectIncognito somehow failed to query storage quota: " + e.message)) }) } function d() { void 0 !== Promise && void 0 !== Promise.allSettled ? c() : (0, window.webkitRequestFileSystem)(0, 1, function () { r(!1) }, function () { r(!0) }) } void 0 !== (e = navigator.vendor) && 0 === e.indexOf("Apple") && i(37) ? (n = "Safari", a()) : void 0 !== (e = navigator.vendor) && 0 === e.indexOf("Google") && i(33) ? (e = navigator.userAgent, n = e.match(/Chrome/) ? void 0 !== navigator.brave ? "Brave" : e.match(/Edg/) ? "Edge" : e.match(/OPR/) ? "Opera" : "Chrome" : "Chromium", d()) : void 0 !== document.documentElement && void 0 !== document.documentElement.style.MozAppearance && i(37) ? (n = "Firefox", r(void 0 === navigator.serviceWorker)) : void 0 !== navigator.msSaveBlob && i(39) ? (n = "Internet Explorer", r(void 0 === window.indexedDB)) : o(new Error("detectIncognito cannot determine the browser")) }) };
 //---------------------External libarary---------------------//
 
 let $ = jQuery
 let dd = (...d) => {
-  if(BAHAID !== 'nathan60107')return
-  d.forEach((it)=>{console.log(it)})
+  if (BAHAID !== 'nathan60107') return
+  d.forEach((it) => { console.log(it) })
 }
 
 function regexEscape(pattern) {
@@ -20,7 +42,7 @@ function regexEscape(pattern) {
 async function isPrivateFF() {
   return new Promise((resolve) => {
     detectIncognito().then((result) => {
-      if(result.browserName === 'Firefox' && result.isPrivate) return resolve(true)
+      if (result.browserName === 'Firefox' && result.isPrivate) return resolve(true)
       return resolve(false)
     });
   })
@@ -31,7 +53,7 @@ function titleProcess(title) {
 }
 
 function timeProcess(time) {
-  if(!time || time === '不明') return ''
+  if (!time || time === '不明') return ''
   let [, year, month] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
   return `${year}-${parseInt(month)}～`
 }
@@ -56,13 +78,13 @@ async function getBahaData() {
 
 async function GET(url) {
   return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest ({
-      method:   "GET",
-      url:      url,
-      onload:   (response) => {
+    GM_xmlhttpRequest({
+      method: "GET",
+      url: url,
+      onload: (response) => {
         resolve(response)
       },
-      onerror:  (response)=>{reject(response)},
+      onerror: (response) => { reject(response) },
     });
   })
 }
@@ -71,16 +93,16 @@ async function POST(url, payload, headers = {}) {
   let data = new URLSearchParams(payload).toString()
   return new Promise((resolve, reject) => {
     GM_xmlhttpRequest({
-      method:  "POST",
-      url:     url,
-      data:    data,
+      method: "POST",
+      url: url,
+      data: data,
       headers: {
         ...headers
       },
-      onload:   (response)=>{
+      onload: (response) => {
         resolve(response)
       },
-      onerror:  (response)=>{
+      onerror: (response) => {
         reject(response)
       },
     })
@@ -88,9 +110,9 @@ async function POST(url, payload, headers = {}) {
 }
 
 function getJson(str) {
-  try{
+  try {
     return JSON.parse(str)
-  }catch{
+  } catch {
     dd('json error')
     return {}
   }
@@ -119,23 +141,23 @@ async function google(type, keyword) {
   let googleHtml = (await GET(googleUrl)).responseText
   if (googleHtml.includes('為何顯示此頁')) throw { type: 'google', url: googleUrl }
   let googleResult = $($.parseHTML(googleHtml)).find('#res .v7W49e a')
-  for(let goo of googleResult) {
+  for (let goo of googleResult) {
     let link = goo.href.replace('http://', 'https://')
-    if(link.match(match))return link
+    if (link.match(match)) return link
   }
   return ''
 }
 
 async function searchSyoboi() {
-  let {site, time, fullUrl} = bahaData
-  if(!site || !time) return ''
+  let { site, time, fullUrl } = bahaData
+  if (!site || !time) return ''
 
   let exceptionSite = [
     'tv-tokyo.co.jp',
     'tbs.co.jp',
     'sunrise-inc.co.jp'
   ]
-  if(exceptionSite.includes(site)) {
+  if (exceptionSite.includes(site)) {
     // https://stackoverflow.com/a/33305263
     let exSiteList = exceptionSite.reduce((acc, cur) => {
       return acc.concat([regexEscape(`${cur}/anime/`), regexEscape(`${cur}/`)])
@@ -143,7 +165,7 @@ async function searchSyoboi() {
 
     for (const ex of exSiteList) {
       let regexResult = fullUrl.match(new RegExp(`(${ex}[^\/]+)`))?.[1]
-      if(regexResult){
+      if (regexResult) {
         site = regexResult
         break
       }
@@ -160,7 +182,7 @@ async function searchSyoboi() {
   for (let result of syoboiResults) {
     let resultTime = $(result).find('.findComment')[0].innerText
 
-    if(resultTime.includes(time)){
+    if (resultTime.includes(time)) {
       let resultUrl = $(result).find('a').attr('href')
       return `https://cal.syoboi.jp${resultUrl}`
     }
@@ -170,7 +192,7 @@ async function searchSyoboi() {
 
 function songType(type) {
   type = type.toLowerCase().replace('section ', '')
-  switch(type){
+  switch (type) {
     case 'op':
       return 'OP'
     case 'ed':
@@ -190,7 +212,7 @@ async function getAllcinema(jpTitle = true) {
   if (animeName === '') return null
   let allcinemaUrl = await google('allcinema', animeName)
   dd(`Allcinema url: ${allcinemaUrl}`)
-  if(!allcinemaUrl) return null
+  if (!allcinemaUrl) return null
 
   let allcinemaId = allcinemaUrl.match(/https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/)[1]
   let allcinemaHtml = (await GET(allcinemaUrl))
@@ -201,7 +223,7 @@ async function getAllcinema(jpTitle = true) {
   let allcinemaCsrfToken = allcinemaHtml.responseText.match(/var csrf_token = '([^']+)';/)[1]
   let allcinemaHeader = {
     ...(await isPrivateFF()
-      ? { 'Cookie' : `XSRF-TOKEN=${allcinemaXsrfToken}; allcinema_session=${allcinemaSession}` }
+      ? { 'Cookie': `XSRF-TOKEN=${allcinemaXsrfToken}; allcinema_session=${allcinemaSession}` }
       : {}
     ),
     'X-CSRF-TOKEN': allcinemaCsrfToken,
@@ -210,7 +232,7 @@ async function getAllcinema(jpTitle = true) {
 
   let castData = allcinemaHtml.responseText.match(/"cast":(.*)};/)[1]
   let castJson = getJson(castData)
-  let cast = castJson.jobs[0].persons.map(it=>({
+  let cast = castJson.jobs[0].persons.map(it => ({
     char: it.castname,
     cv: it.person.personnamemain.personname
   }))
@@ -220,14 +242,15 @@ async function getAllcinema(jpTitle = true) {
     page_limit: 10
   }, allcinemaHeader)
   let songJson = getJson(songData.responseText)
-  let song = songJson.moviesounds.sounds.map(it=>{
+  let song = songJson.moviesounds.sounds.map(it => {
     return {
       type: songType(it.sound.usetype),
       title: `「${it.sound.soundtitle}」`,
       singer: it.sound.credit.staff.jobs.
-        filter(job=>job.job.jobname.includes('歌'))
-        [0]?.persons[0].person.personnamemain.personname
-  }})
+        filter(job => job.job.jobname.includes('歌'))
+      [0]?.persons[0].person.personnamemain.personname
+    }
+  })
   // dd(castJson, songJson)
 
   return {
@@ -243,13 +266,13 @@ async function getSyoboi(searchGoogle = false) {
   if (nameJp === '') return null
   let syoboiUrl = await (searchGoogle ? google('syoboi', nameJp) : searchSyoboi())
   dd(`Syoboi url: ${syoboiUrl}`)
-  if(!syoboiUrl) return null
+  if (!syoboiUrl) return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
   let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
-  
+
   let cast = []
   let castData = $($.parseHTML(syoboiHtml)).find('.cast table tr')
-  for(let role of castData){
+  for (let role of castData) {
     cast.push({
       char: $(role).find('th').text(),
       cv: $(role).find('td > a').text()
@@ -258,7 +281,8 @@ async function getSyoboi(searchGoogle = false) {
 
   let song = []
   let songData = $($.parseHTML(syoboiHtml)).find('.staff ~ .section:not(.cast)') // https://stackoverflow.com/a/42575222
-  for(let sd of songData){
+  for (let sd of songData) {
+    dd(sd)
     song.push({
       type: songType(sd.className),
       title: $(sd).find('.title')[0].childNodes[2].data,
@@ -285,13 +309,13 @@ async function searchWiki(json) {
       lllimit: 100,
       ppprop: 'disambiguation'
     }
-    for(let [k, v] of Object.entries(params)){
+    for (let [k, v] of Object.entries(params)) {
       wikiUrlObj.searchParams.append(k, v)
     }
     return wikiUrlObj.toString()
   }
 
-  let castList = _.chunk(_.uniq(json.map(j => j.cvName2 ?? j.cv)), 50)  
+  let castList = _.chunk(_.uniq(json.map(j => j.cvName2 ?? j.cv)), 50)
   let result = {
     query: {
       pages: {},
@@ -300,7 +324,7 @@ async function searchWiki(json) {
     }
   }
 
-  for(let cast50 of castList){
+  for (let cast50 of castList) {
     let nameList = cast50.join('|')
     let wikiApi = searchWikiUrl(nameList)
     let wikiJson = JSON.parse((await GET(wikiApi)).responseText)
@@ -314,10 +338,10 @@ async function searchWiki(json) {
 }
 
 async function getCastHtml(json) {
-  function replaceEach(array, getFrom = (it)=>it.from, getTo = (it)=>it.to) {
+  function replaceEach(array, getFrom = (it) => it.from, getTo = (it) => it.to) {
     array?.forEach((it) => {
       json.forEach((j, index) => {
-        if (j.cv === getFrom(it) || j.cvName2 === getFrom(it)){
+        if (j.cv === getFrom(it) || j.cvName2 === getFrom(it)) {
           json[index].cvName2 = getTo(it)
         }
       })
@@ -325,7 +349,7 @@ async function getCastHtml(json) {
   }
 
   let wikiJson = await searchWiki(json)
-  let disamb = _.filter(wikiJson.query.pages, ['pageprops', {disambiguation: ''}])
+  let disamb = _.filter(wikiJson.query.pages, ['pageprops', { disambiguation: '' }])
   let normalized = wikiJson.query.normalized
   let redirects = wikiJson.query.redirects
   // dd(wikiJson, normalized, redirects, disamb)
@@ -334,7 +358,7 @@ async function getCastHtml(json) {
   replaceEach(normalized)
   replaceEach(redirects)
   if (disamb.length) {
-    replaceEach(disamb, (it)=>it.title, (it)=>`${it.title} (声優)`)
+    replaceEach(disamb, (it) => it.title, (it) => `${it.title} (声優)`)
 
     wikiJson = await searchWiki(json)
     redirects = wikiJson.query.redirects
@@ -342,7 +366,7 @@ async function getCastHtml(json) {
   }
 
   return json.map(j => {
-    let wikiPage = _.filter(wikiJson.query.pages, page => 
+    let wikiPage = _.filter(wikiJson.query.pages, page =>
       page.title === j.cv || page.title === j.cvName2
     )[0]
     let zhName = wikiPage.langlinks?.[0]['*']
@@ -362,7 +386,7 @@ function getSongHtml(json) {
   return json.map(j => `
     <div>${j.type}${j.title}</div>
     <div>${j.singer ?? '-'}</div>
-    <a href="https://www.youtube.com/results?search_query=${j.title.slice(1, j.title.length-1)} ${j.singer ?? ''}" target="_blank">
+    <a href="https://www.youtube.com/results?search_query=${j.title.slice(1, j.title.length - 1)} ${j.singer ?? ''}" target="_blank">
       🔎Youtube
     </a>
   `).join('')
@@ -391,7 +415,7 @@ function getCss() {
 }
 
 async function changeState(state, params) {
-  switch(state){
+  switch (state) {
     case 'init':
       $('.anime-option').append(`
         <style type='text/css'>${getCss()}</style>
@@ -431,7 +455,7 @@ async function changeState(state, params) {
       let castHtml = await getCastHtml(params.cast)
       let songHtml = getSongHtml(params.song)
       $('#ani-info').html('')
-      if(castHtml) $('#ani-info').append(`
+      if (castHtml) $('#ani-info').append(`
         <ul class="data_type">
           <li>
             <span>CAST</span>
@@ -439,7 +463,7 @@ async function changeState(state, params) {
           </li>
         </ul>
       `)
-      if(songHtml) $('#ani-info').append(`
+      if (songHtml) $('#ani-info').append(`
         <ul class="data_type">
           <li>
             <span>主題曲</span>
@@ -487,7 +511,7 @@ async function changeState(state, params) {
 async function main() {
   let debug = false
   try {
-    if(debug){
+    if (debug) {
       changeState('debug')
       return
     }
@@ -496,24 +520,24 @@ async function main() {
     if (!result) result = await getAllcinema(true)
     if (!result) result = await getAllcinema(false)
     if (!result) result = await getSyoboi(true)
-    
+
     if (result) changeState('result', result)
-    else changeState('fail', {error: ''})
-  } catch(e) {
-    if (e.type === 'google'){
-      changeState('google', {url: e.url})
+    else changeState('fail', { error: '' })
+  } catch (e) {
+    if (e.type === 'google') {
+      changeState('google', { url: e.url })
     } else {
-      changeState('fail', {error: e})
+      changeState('fail', { error: e })
     }
   }
 }
 
-(async function() {
+(async function () {
   globalThis.bahaData = await getBahaData()
   changeState('init')
 
   // Set user option default value.
-  if(GM_getValue('auto') == undefined){ GM_setValue('auto', true); }
+  if (GM_getValue('auto') == undefined) { GM_setValue('auto', true); }
 
   // Set user option menu in Tampermonkey.
   let isAuto = GM_getValue('auto');
@@ -523,7 +547,7 @@ async function main() {
   });
 
   // Do task or set button to wait for click and do task.
-  if(isAuto) main()
+  if (isAuto) main()
   else changeState('btn')
 })();
 
