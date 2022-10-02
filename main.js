@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.0.2
+// @version      1.0.3
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -393,6 +393,7 @@ function getSongHtml(json) {
 
 function getCss() {
   return `
+    /* CSS for anigamerinfo+ */
     #ani-info .grid {
       display: grid;
       gap: 10px;
@@ -409,6 +410,24 @@ function getCss() {
     }
     #ani-info .grid.song {
       grid-template-columns: repeat(3, auto);
+    }
+    /* CSS for anigamer */
+    .is-hint {
+      display: none;
+    }
+    .ani-tabs {
+      overflow: scroll;
+      /* IE and Edge */
+      -ms-overflow-style: none !important;
+      /* Firefox */
+      scrollbar-width: none !important;
+    }
+    .ani-tabs::-webkit-scrollbar {
+      /* Chrome and Safari */
+      display: none !important;
+    }
+    .ani-tabs__item {
+      flex-shrink: 0;
     }
   `
 }

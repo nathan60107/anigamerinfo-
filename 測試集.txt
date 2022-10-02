@@ -73,6 +73,8 @@ https://ani.gamer.com.tw/animeRef.php?sn=112539
 Fate/stay night [Heaven's Feel] Ⅲ.春櫻之歌
 https://ani.gamer.com.tw/animeVideo.php?sn=26998
 
+syoboi cast與song皆空
+https://ani.gamer.com.tw/animeVideo.php?sn=25612
 
 
 可靠性測試
@@ -154,6 +156,7 @@ https://ani.gamer.com.tw/animeVideo.php?sn=30940 " 和氣あず未" => 和氣あ
 https://ani.gamer.com.tw/animeVideo.php?sn=30785 M・A・O => 市道真央
 12.6. 聲優個人頁面從缺
 https://ani.gamer.com.tw/animeVideo.php?sn=30682 蘭笛
-12.
+13. 台灣首播
+https://ani.gamer.com.tw/animeVideo.php?sn=31403
 
 首播時間不明
