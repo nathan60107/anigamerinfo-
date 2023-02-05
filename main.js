@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.0.3
+// @version      1.0.4
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -428,6 +428,9 @@ function getCss() {
     }
     .ani-tabs__item {
       flex-shrink: 0;
+    }
+    .tool-bar-mask {
+      background-image: none !important;
     }
   `
 }

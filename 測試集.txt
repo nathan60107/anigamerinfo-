@@ -132,7 +132,7 @@ https://ani.gamer.com.tw/animeVideo.php?sn=25612
 9.1. syoboi的song的歌手從缺 => getSyoboi().song[i].singer為undefined
 https://ani.gamer.com.tw/animeVideo.php?sn=30878
 10. allcinema的cast
-找不到
+https://ani.gamer.com.tw/animeVideo.php?sn=16437 無cast
 11. allcinema的song
 https://ani.gamer.com.tw/animeVideo.php?sn=31044 無歌
 11.1. allcinema的song的歌手從缺 => getAllcinema().song[i].singer為undefined
