@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.0.4
+// @version      1.1.0
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -59,7 +59,7 @@ function timeProcess(time) {
 }
 
 async function getBahaData() {
-  let bahaDbUrl = $('.data_intro .bluebtn')[1].href
+  let bahaDbUrl = $('a:contains(作品資料)')[0].href
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
   let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
   let nameEn = bahaHtml.find('.ACG-mster_box1 > h2')[1].innerText
@@ -393,7 +393,34 @@ function getSongHtml(json) {
 
 function getCss() {
   return `
+    /* Old baha CSS */
+    .data_type {
+      width: 100%;
+      margin-left: 12px;
+      padding: 12px 0;
+    }
+    .data_type li {
+      float: left;
+      margin-right: 24px;
+      margin-bottom: 8px;
+      font-size: 1.4em;
+      color: var(--text-default-color);
+    }
+    .data_type span {
+      display: inline-block;
+      font-size: 0.8em;
+      padding: 6px;
+      margin-right: 10px;
+      color: var(--text-default-color);
+      background: var(--btn-more);
+      border-radius: 4px;
+      text-align: center;
+    }
     /* CSS for anigamerinfo+ */
+    #ani-info {
+      display: flex;
+      flex-direction: column;
+    }
     #ani-info .grid {
       display: grid;
       gap: 10px;
