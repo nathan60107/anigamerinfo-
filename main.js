@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.1.0
+// @version      1.1.1
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -31,7 +31,6 @@ var detectIncognito = function () { return new Promise(function (t, o) { var e, 
 
 let $ = jQuery
 let dd = (...d) => {
-  if (BAHAID !== 'nathan60107') return
   d.forEach((it) => { console.log(it) })
 }
 
@@ -61,8 +60,8 @@ function timeProcess(time) {
 async function getBahaData() {
   let bahaDbUrl = $('a:contains(作品資料)')[0].href
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
-  let nameJp = bahaHtml.find('.ACG-mster_box1 > h2')[0].innerText
-  let nameEn = bahaHtml.find('.ACG-mster_box1 > h2')[1].innerText
+  let nameJp = bahaHtml.find('.ACG-info-container > h2')[0].innerText
+  let nameEn = bahaHtml.find('.ACG-info-container > h2')[1].innerText
   let urlObj = new URL(bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.href ?? 'https://empty')
   let fullUrl = urlObj.searchParams.get('url')
   let time = bahaHtml.find('.ACG-box1listA > li:contains("當地")')[0]?.innerText?.split('：')[1]
@@ -113,7 +112,6 @@ function getJson(str) {
   try {
     return JSON.parse(str)
   } catch {
-    dd('json error')
     return {}
   }
 }
@@ -136,7 +134,6 @@ async function google(type, keyword) {
   googleUrlObj.searchParams.append('as_q', keyword)
   googleUrlObj.searchParams.append('as_sitesearch', site)
   let googleUrl = googleUrlObj.toString()
-  dd(`Google result: ${googleUrl}`)
 
   let googleHtml = (await GET(googleUrl)).responseText
   if (googleHtml.includes('為何顯示此頁')) throw { type: 'google', url: googleUrl }
@@ -175,7 +172,6 @@ async function searchSyoboi() {
   let searchUrlObj = new URL('https://cal.syoboi.jp/find?sd=0&ch=&st=&cm=&r=0&rd=&v=0')
   searchUrlObj.searchParams.append('kw', site)
   let searchUrl = searchUrlObj.toString()
-  dd(`Syoboi result: ${searchUrl}`)
 
   let syoboiHtml = (await GET(searchUrl)).responseText
   let syoboiResults = $($.parseHTML(syoboiHtml)).find('.tframe td')
@@ -211,7 +207,6 @@ async function getAllcinema(jpTitle = true) {
   let animeName = jpTitle ? bahaData.nameJp : bahaData.nameEn
   if (animeName === '') return null
   let allcinemaUrl = await google('allcinema', animeName)
-  dd(`Allcinema url: ${allcinemaUrl}`)
   if (!allcinemaUrl) return null
 
   let allcinemaId = allcinemaUrl.match(/https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/)[1]
@@ -251,7 +246,6 @@ async function getAllcinema(jpTitle = true) {
       [0]?.persons[0].person.personnamemain.personname
     }
   })
-  // dd(castJson, songJson)
 
   return {
     source: allcinemaUrl,
@@ -265,7 +259,6 @@ async function getSyoboi(searchGoogle = false) {
   let nameJp = bahaData.nameJp
   if (nameJp === '') return null
   let syoboiUrl = await (searchGoogle ? google('syoboi', nameJp) : searchSyoboi())
-  dd(`Syoboi url: ${syoboiUrl}`)
   if (!syoboiUrl) return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
   let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
@@ -351,7 +344,6 @@ async function getCastHtml(json) {
   let disamb = _.filter(wikiJson.query.pages, ['pageprops', { disambiguation: '' }])
   let normalized = wikiJson.query.normalized
   let redirects = wikiJson.query.redirects
-  // dd(wikiJson, normalized, redirects, disamb)
 
   // Deal with wiki page normalized, redirects and disambiguation.
   replaceEach(normalized)
