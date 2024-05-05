@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.1.2
+// @version      1.1.3
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -52,9 +52,13 @@ function titleProcess(title) {
 }
 
 function timeProcess(time) {
-  if (!time || time === '不明') return ''
+  if (!time || time === '不明') return null
   let [, year, month] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
-  return `${year}-${parseInt(month)}～`
+  return [
+    `${year}-${parseInt(month) - 1}～`,
+    `${year}-${parseInt(month)}～`,
+    `${year}-${parseInt(month) + 1}～`,
+  ]
 }
 
 async function getBahaData() {
@@ -178,7 +182,7 @@ async function searchSyoboi() {
   for (let result of syoboiResults) {
     let resultTime = $(result).find('.findComment')[0].innerText
 
-    if (resultTime.includes(time)) {
+    if (time.some(t => resultTime.includes(t))) {
       let resultUrl = $(result).find('a').attr('href')
       return `https://cal.syoboi.jp${resultUrl}`
     }
