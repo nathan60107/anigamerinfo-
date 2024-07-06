@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.1.3
+// @version      1.1.4
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -34,10 +34,16 @@ let dd = (...d) => {
   d.forEach((it) => { console.log(it) })
 }
 
+/**
+ * @param { string } pattern 
+ */
 function regexEscape(pattern) {
   return pattern.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1')
 }
 
+/**
+ * @returns { Promise<boolean> }
+ */
 async function isPrivateFF() {
   return new Promise((resolve) => {
     detectIncognito().then((result) => {
@@ -47,10 +53,16 @@ async function isPrivateFF() {
   })
 }
 
+/**
+ * @param { string } title 
+ */
 function titleProcess(title) {
   return title.replaceAll('-', '\\-').replaceAll('#', '')
 }
 
+/**
+ * @param { string } time 
+ */
 function timeProcess(time) {
   if (!time || time === '不明') return null
   let [, year, month] = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
@@ -78,20 +90,32 @@ async function getBahaData() {
     time: timeProcess(time),
   }
 }
+const bahaData = await getBahaData()
 
+/**
+ * @param { string } url 
+ * @returns { Tampermonkey.Response<string> }
+ */
 async function GET(url) {
   return new Promise((resolve, reject) => {
     GM_xmlhttpRequest({
       method: "GET",
       url: url,
+      /** @param { Tampermonkey.Response<string> } response */
       onload: (response) => {
         resolve(response)
       },
       onerror: (response) => { reject(response) },
-    });
+    })
   })
 }
 
+/**
+ * @param { string } url 
+ * @param { Record<string, unknown> } payload 
+ * @param { Tampermonkey.RequestHeaders } headers 
+ * @returns { Tampermonkey.Response<string> }
+ */
 async function POST(url, payload, headers = {}) {
   let data = new URLSearchParams(payload).toString()
   return new Promise((resolve, reject) => {
@@ -99,9 +123,8 @@ async function POST(url, payload, headers = {}) {
       method: "POST",
       url: url,
       data: data,
-      headers: {
-        ...headers
-      },
+      headers: headers,
+      /** @param { Tampermonkey.Response<string> } response */
       onload: (response) => {
         resolve(response)
       },
@@ -120,7 +143,14 @@ function getJson(str) {
   }
 }
 
+/**
+ * @param { 'syoboi' | 'allcinema' } type 
+ * @param { string } keyword 
+ * @returns { Promise<string> }
+ */
 async function google(type, keyword) {
+  if (keyword === '') return ''
+
   let site = ''
   let match = ''
   switch (type) {
@@ -141,7 +171,7 @@ async function google(type, keyword) {
 
   let googleHtml = (await GET(googleUrl)).responseText
   if (googleHtml.includes('為何顯示此頁')) throw { type: 'google', url: googleUrl }
-  let googleResult = $($.parseHTML(googleHtml)).find('#res .v7W49e a')
+  let googleResult = $($.parseHTML(googleHtml)).find('#res span a')
   for (let goo of googleResult) {
     let link = goo.href.replace('http://', 'https://')
     if (link.match(match)) return link
@@ -190,6 +220,9 @@ async function searchSyoboi() {
   return ''
 }
 
+/**
+ * @param { string } type 
+ */
 function songType(type) {
   type = type.toLowerCase().replace('section ', '')
   switch (type) {
@@ -205,12 +238,19 @@ function songType(type) {
   }
 }
 
-async function getAllcinema(jpTitle = true) {
+/**
+ * @typedef AniResponse
+ * @property { string } source
+ * @property { string } title
+ * @property { Record<'char' | 'cv', string> } cast
+ * @property { Record<'type' | 'title' | 'singer', string> } song
+*/
+/**
+ * @param { string } allcinemaUrl
+ * @returns { Promise<AniResponse> }
+ */
+async function getAllcinema(allcinemaUrl) {
   changeState('allcinema')
-
-  let animeName = jpTitle ? bahaData.nameJp : bahaData.nameEn
-  if (animeName === '') return null
-  let allcinemaUrl = await google('allcinema', animeName)
   if (!allcinemaUrl) return null
 
   let allcinemaId = allcinemaUrl.match(/https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/)[1]
@@ -257,12 +297,13 @@ async function getAllcinema(jpTitle = true) {
   }
 }
 
-async function getSyoboi(searchGoogle = false) {
+/**
+ * @param { string } syoboiUrl 
+ * @returns { Promise<AniResponse> }
+ */
+async function getSyoboi(syoboiUrl) {
   changeState('syoboi')
 
-  let nameJp = bahaData.nameJp
-  if (nameJp === '') return null
-  let syoboiUrl = await (searchGoogle ? google('syoboi', nameJp) : searchSyoboi())
   if (!syoboiUrl) return null
   let syoboiHtml = (await GET(syoboiUrl)).responseText
   let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1]
@@ -292,6 +333,16 @@ async function getSyoboi(searchGoogle = false) {
   }
 }
 
+/**
+ * @param { AniResponse['cast'] } json
+ * @returns {{
+ *  query: {
+ *    pages: Record<number, { pageid: number, title: string, langlinks?: { lang: string, '*': string }[], pageprops?: { disambiguation: string }  }>
+ *    normalized: Record<number, { from: string, to: string }>
+ *    redirects: Record<number, { from: string, to: string }>
+ *  }
+ * }}
+ */
 async function searchWiki(json) {
   let searchWikiUrl = (nameList) => {
     let wikiUrlObj = new URL('https://ja.wikipedia.org/w/api.php')
@@ -333,6 +384,10 @@ async function searchWiki(json) {
   return result
 }
 
+/**
+ * @param { AniResponse['cast'] } json 
+ * @returns { string }
+ */
 async function getCastHtml(json) {
   function replaceEach(array, getFrom = (it) => it.from, getTo = (it) => it.to) {
     array?.forEach((it) => {
@@ -377,6 +432,10 @@ async function getCastHtml(json) {
   `}).join('')
 }
 
+/**
+ * @param { AniResponse['song'] } json 
+ * @returns { string }
+ */
 function getSongHtml(json) {
   return json.map(j => `
     <div>${j.type}${j.title}</div>
@@ -387,6 +446,9 @@ function getSongHtml(json) {
   `).join('')
 }
 
+/**
+ * @returns { string }
+ */
 function getCss() {
   return `
     /* Old baha CSS */
@@ -458,6 +520,23 @@ function getCss() {
   `
 }
 
+/**
+ * @overload
+ * @param { 'init' | 'btn' | 'syoboi' | 'allcinema' | 'debug' } state
+ * @return { Promise<void> }
+ * @overload
+ * @param { 'google' } state
+ * @param { { url: string } } params
+ * @return { Promise<void> }
+ * @overload
+ * @param { 'fail' } state
+ * @param { { error: Error | string } } params
+ * @return { Promise<void> }
+ * @overload
+ * @param { 'result' } state
+ * @param { AniResponse } params
+ * @return { Promise<void> }
+ */
 async function changeState(state, params) {
   switch (state) {
     case 'init':
@@ -526,10 +605,10 @@ async function changeState(state, params) {
       break
     }
     case 'debug': {
-      let aaa = await getSyoboi()
-      let bbb = await getSyoboi(true)
-      let ccc = await getAllcinema()
-      let ddd = await getAllcinema(false)
+      const aaa = await getSyoboi(await searchSyoboi())
+      const bbb = await getSyoboi(await google('syoboi', bahaData.nameJp))
+      const ccc = await getAllcinema(await google('allcinema', bahaData.nameJp))
+      const ddd = await getAllcinema(await google('allcinema', bahaData.nameEn))
       $('#ani-info').html('')
       $('#ani-info').append(`
         <ul class="data_type">
@@ -560,10 +639,10 @@ async function main() {
       return
     }
     let result = null
-    result = await getSyoboi(false)
-    if (!result) result = await getAllcinema(true)
-    if (!result) result = await getAllcinema(false)
-    if (!result) result = await getSyoboi(true)
+    result = await getSyoboi(await searchSyoboi())
+    if (!result) result = await getAllcinema(await google('allcinema', bahaData.nameJp))
+    if (!result) result = await getAllcinema(await google('allcinema', bahaData.nameEn))
+    if (!result) result = await getSyoboi(await google('syoboi', bahaData.nameJp))
 
     if (result) changeState('result', result)
     else changeState('fail', { error: '' })
@@ -577,7 +656,6 @@ async function main() {
 }
 
 (async function () {
-  globalThis.bahaData = await getBahaData()
   changeState('init')
 
   // Set user option default value.
