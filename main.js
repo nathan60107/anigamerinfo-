@@ -77,11 +77,20 @@ function timeProcess(time) {
   ]
 }
 
+function extractYearMonth(time) {
+  if (!time || time === '不明') return null;
+  let match = time.match(/([0-9]{4})-([0-9]{2})/);
+  if (!match) return null;
+  let [, year, month] = match;
+  return `${year}-${month}`;
+}
+
 async function getBahaData() {
   let bahaDbUrl = $('a:contains(作品資料)')[0].href
   let bahaHtml = $((await GET(bahaDbUrl)).responseText)
   let nameJp = bahaHtml.find('.ACG-info-container > h2')[0].innerText
   let nameEn = bahaHtml.find('.ACG-info-container > h2')[1].innerText
+  let broadcast = bahaHtml.find('.ACG-box1listA > li:contains("播映方式")')[0]?.innerText
   let urlObj = new URL(bahaHtml.find('.ACG-box1listB > li:contains("官方網站") > a')[0]?.href ?? 'https://empty')
   let fullUrl = urlObj.searchParams.get('url')
   let time = bahaHtml.find('.ACG-box1listA > li:contains("當地")')[0]?.innerText?.split('：')[1]
@@ -92,6 +101,8 @@ async function getBahaData() {
     site: fullUrl ? new URL(fullUrl).hostname.replace('www.', '') : '',
     fullUrl: fullUrl,
     time: timeProcess(time),
+    onAirMonth: extractYearMonth(time),
+    broadcast: broadcast,
   }
 }
 
@@ -153,25 +164,28 @@ function getJson(str) {
  * @param { string } keyword 
  * @returns { Promise<string> }
  */
-async function google(type, keyword) {
+async function google(type, keyword, onAirMonth) {
   // [MODIFIED] 
   if (keyword === '') return ''
 
   let site = ''
   let match = ''
+  let fullQuery = '';
   switch (type) {
     case 'syoboi':
       site = 'https://cal.syoboi.jp/tid'
       match = 'https://cal.syoboi.jp/tid'
+      fullQuery = `intitle:${keyword} intext:${onAirMonth}`;
       break
     case 'allcinema':
       site = 'https://www.allcinema.net/cinema/'
       match = /https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/
+      fullQuery = `intitle:${keyword}`;
       break
   }
-
+  
   let googleUrlObj = new URL('https://www.google.com/search?as_qdr=all&as_occt=any')
-  googleUrlObj.searchParams.append('as_q', keyword)
+  googleUrlObj.searchParams.append('as_q', fullQuery)
   googleUrlObj.searchParams.append('as_sitesearch', site)
   let googleUrl = googleUrlObj.toString()
 
@@ -269,7 +283,7 @@ async function getAllcinema(jpTitle = true) {
 
   let animeName = jpTitle ? bahaData.nameJp : bahaData.nameEn
   if (animeName === '') return null
-  let allcinemaUrl = await google('allcinema', animeName)
+  let allcinemaUrl = await google('allcinema', animeName, bahaData.onAirMonth)
   if (!allcinemaUrl) return null
 
   let allcinemaIdMatch = allcinemaUrl.match(/https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/)
@@ -389,9 +403,14 @@ async function getSyoboi(searchGoogle = false) {
   // 回傳包含 rawHtml 和 h1Title 的物件，供 masterMain() 解析
   changeState('syoboi')
 
-  let nameJp = bahaData.nameJp
-  if (nameJp === '') return null
-  let syoboiUrl = await (searchGoogle ? google('syoboi', nameJp) : searchSyoboi())
+  let syoboiUrl='';
+  if(searchGoogle){
+    let animeName = bahaData.nameJp ? bahaData.nameJp : bahaData.nameEn
+    if (animeName === '') return null
+    syoboiUrl = await (google('syoboi', animeName, bahaData.onAirMonth))
+  }else{
+    syoboiUrl = await (searchSyoboi())
+  }
   if (!syoboiUrl) return null
 
   let syoboiHtml = (await GET(syoboiUrl)).responseText
@@ -903,9 +922,12 @@ async function masterMain() {
     let processedUrls = new Set(); // [NEW] 用於全局防止重複
 
     // 1. [Syoboi-First] 嘗試抓取 Syoboi
-    let initialResult = await getSyoboi(false);
-    if (!initialResult) {
-      initialResult = await getSyoboi(true);
+    let initialResult
+    if (bahaData.broadcast && !bahaData.broadcast.includes('OVA')){
+      initialResult = await getSyoboi(false);
+      if (!initialResult) {
+        initialResult = await getSyoboi(true);
+      }
     }
 
     if (initialResult) {
