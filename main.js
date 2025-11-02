@@ -20,7 +20,6 @@
 // @noframes
 // ==/UserScript==
 
-
 //---------------------External libarary---------------------//
 /**
  *
@@ -279,8 +278,6 @@ async function getAllcinema(jpTitle = true) {
   // [REPLACED] 接收 boolean
   // 函數內部呼叫 google()
   // 增加防護 (guard clauses)
-  changeState('allcinema')
-
   let animeName = jpTitle ? bahaData.nameJp : bahaData.nameEn
   if (animeName === '') return null
   let allcinemaUrl = await google('allcinema', animeName, bahaData.onAirMonth)
@@ -355,18 +352,15 @@ async function getAllcinema(jpTitle = true) {
 }
 
 /**
- * [NEW]
- * 從 Syoboi HTML 中解析資料
- * @param {string} syoboiHtml - 頁面 HTML
- * @returns {{ title: string, h1Title: string, cast: AniResponse['cast'], song: AniResponse['song'] }}
+ * @param { string } syoboiUrl 
+ * @returns { Promise<AniResponse & { relatedParts: { title: string, url: string } }> }
  */
-function parseSyoboiDataFromHtml(syoboiHtml) {
-  let dom = $($.parseHTML(syoboiHtml));
-  let title = syoboiHtml.match(/<title>([^<]*)<\/title>/)[1];
+async function getSyoboi(syoboiUrl) {
+  if (!syoboiUrl) return null
+  let dom = $($.parseHTML((await GET(syoboiUrl)).responseText));
+  let title = dom.find('h1').clone().children().remove().end().text().trim();
 
-  //抓取 h1 標題，並移除內部的 span (clone, children, remove, end)
-  let h1Title = dom.find('h1').clone().children().remove().end().text().trim();
-
+  // Process cast
   let cast = []
   let castData = dom.find('.cast table tr')
   for (let role of castData) {
@@ -376,6 +370,7 @@ function parseSyoboiDataFromHtml(syoboiHtml) {
     })
   }
 
+  // Process song
   let song = []
   let songData = dom.find('.op, .ed, .st, .section:contains("主題歌")') // https://stackoverflow.com/a/42575222
   for (let sd of songData) {
@@ -388,58 +383,23 @@ function parseSyoboiDataFromHtml(syoboiHtml) {
     })
   }
 
-  return {
-    title, h1Title, cast, song
-  }
-}
+  // Process related parts
+  const relatedParts = []
+  dom.find('div.tidGroup ul.tidList li').each(function () {
+    let a = $(this).find('a')
+    if (!a.length) return
+    let linkTitle = a.text().trim()
+    if (!linkTitle.startsWith(title)) return // Find part name start with original title.
+    let url = new URL(a.attr('href'), 'https://cal.syoboi.jp/').href
+    if (relatedParts.find(p => p.url === url)) return // Prevent duplicate page
 
-/**
- * @param { boolean } [searchGoogle=false]
- * @returns { Promise<AniResponse & { h1Title: string, rawHtml: string } | null> }
- */
-async function getSyoboi(searchGoogle = false) {
-  // [REPLACED] 接收 boolean
-  // 函數內部呼叫 google()
-  // 回傳包含 rawHtml 和 h1Title 的物件，供 masterMain() 解析
-  changeState('syoboi')
-
-  let syoboiUrl='';
-  if(searchGoogle){
-    let animeName = bahaData.nameJp ? bahaData.nameJp : bahaData.nameEn
-    if (animeName === '') return null
-    syoboiUrl = await (google('syoboi', animeName, bahaData.onAirMonth))
-  }else{
-    syoboiUrl = await (searchSyoboi())
-  }
-  if (!syoboiUrl) return null
-
-  let syoboiHtml = (await GET(syoboiUrl)).responseText
-  let data = parseSyoboiDataFromHtml(syoboiHtml)
+    relatedParts.push({ title: linkTitle, url: url })
+  })
 
   return {
     source: syoboiUrl,
-    ...data,
-    rawHtml: syoboiHtml // 回傳原始 HTML 供後續解析
-  }
-}
-
-/**
- * [NEW]
- * 抓取並解析 Syoboi URL
- * @param {string} syoboiUrl 
- * @returns { Promise<AniResponse & { h1Title: string } | null> }
- */
-async function getSyoboiData(syoboiUrl) {
-  try {
-    let syoboiHtml = (await GET(syoboiUrl)).responseText
-    let data = parseSyoboiDataFromHtml(syoboiHtml)
-    return {
-      source: syoboiUrl,
-      ...data
-    }
-  } catch (e) {
-    console.error(`Failed to fetch ${syoboiUrl}`, e);
-    return null; // 抓取失敗
+    title, cast, song,
+    relatedParts: relatedParts.reverse(),
   }
 }
 
@@ -737,16 +697,12 @@ async function renderPaneContent(paneElement, data) {
  * @param { { error: Error | string } } params
  * @return { Promise<void> }
  * @overload
- * @param { 'loading' } state
- * @param { { fetched: number, total: number } } params
- * @return { Promise<void> }
- * @overload
  * @param { 'result' } state
  * @param { AniResponse } params
  * @return { Promise<void> }
  * @overload
  * @param { 'tabResult' } state
- * @param { Array<{ title: string, data: AniResponse & { h1Title: string }, error?: string }> } params
+ * @param { Array<{ title: string, data: AniResponse, error?: string }> } params
  * @return { Promise<void> }
  */
 async function changeState(state, params) {
@@ -785,10 +741,7 @@ async function changeState(state, params) {
       $('#ani-info-msg').html(`嘗試取得 syoboi 資料中...`)
       break
     case 'allcinema':
-      $('#ani-info-msg').html(`(Syoboi 失敗) 嘗試取得 allcinema 資料中...`) // <--- 修改的訊息
-      break
-    case 'loading': // [NEW]
-      $('#ani-info-msg').html(`抓取 Syoboi 相關資料中... (已完成 ${params.fetched || 0} / 共 ${params.total})`)
+      $('#ani-info-msg').html(`(Syoboi 失敗) 嘗試取得 allcinema 資料中...`)
       break
     case 'fail':
       $('#ani-info-msg').html(`無法取得資料 ${params.error}`)
@@ -834,8 +787,8 @@ async function changeState(state, params) {
       for (let i = 0; i < allResults.length; i++) {
         let result = allResults[i];
 
-        // 抓取 tab 標題 (優先使用 part.title，次要使用 part.data.h1Title)
-        let tabTitle = result.title || result.data?.h1Title || `Part ${i + 1}`
+        // 抓取 tab 標題
+        let tabTitle = result.title || `Part ${i + 1}`
         tabContainer.append(`<button class="ani-tab-btn" data-tab-id="ani-part-${i}" data-title-key="${tabTitle}">${tabTitle}</button>`);
 
         // 建立分頁內容
@@ -865,7 +818,7 @@ async function changeState(state, params) {
 
         // 尋找對應的資料
         let titleKey = $(this).data('title-key');
-        let resultData = allResults.find(r => (r.title || r.data?.h1Title) === titleKey)?.data;
+        let resultData = allResults.find(r => r.title === titleKey)?.data;
 
         if (resultData && !targetPane.data('loaded')) {
           targetPane.html('<i><span class="loading"></span> 載入資料中...</i>');
@@ -879,9 +832,8 @@ async function changeState(state, params) {
       break;
     }
     case 'debug': {
-      // 1.1.3/1.1.4 的 debug 函數
-      let aaa = await getSyoboi()
-      let bbb = await getSyoboi(true)
+      const aaa = await getSyoboi(await searchSyoboi())
+      const bbb = await getSyoboi(await google('syoboi', bahaData.nameJp))
       let ccc = await getAllcinema()
       let ddd = await getAllcinema(false)
       $('#ani-info').html('')
@@ -918,84 +870,29 @@ async function masterMain() {
       return
     }
 
-    let allResults = [];
-    let processedUrls = new Set(); // [NEW] 用於全局防止重複
-
     // 1. [Syoboi-First] 嘗試抓取 Syoboi
+    changeState('syoboi')
     let initialResult
     if (bahaData.broadcast && !bahaData.broadcast.includes('OVA')){
-      initialResult = await getSyoboi(false);
-      if (!initialResult) {
-        initialResult = await getSyoboi(true);
+      initialResult = await getSyoboi(await searchSyoboi());
+      const animeName = bahaData.nameJp ? bahaData.nameJp : bahaData.nameEn
+      if (!initialResult && animeName) {
+        initialResult = await getSyoboi(await google('syoboi', animeName, bahaData.onAirMonth));
       }
     }
 
     if (initialResult) {
       // --- Syoboi 成功路徑 ---
-
-      // 儲存第一個結果
-      allResults.push({ title: initialResult.h1Title, data: initialResult });
-      processedUrls.add(initialResult.source);
-
-      // 2. 解析相關 Part
-      let dom = $($.parseHTML(initialResult.rawHtml));
-      let h1Title = initialResult.h1Title; // 乾淨的 h1 標題
-      
-      // [MODIFIED]
-      // 使用完整 H1 標題作為比對基準。
-      let baseTitle = h1Title;
-      
-      let relatedParts = [];
-
-      // [NEW] 精確鎖定 ul.tidList
-      dom.find('div.tidGroup ul.tidList li').each(function () {
-        let a = $(this).find('a');
-        let span = $(this).find('span.selected');
-        let element = a.length ? a : span; // 獲取 <a> 或 <span>
-
-        if (!element.length) return; // 跳過空 li
-
-        let linkTitle = element.text().trim();
-        
-        // [MODIFIED] 篩選邏輯：標題必須以 "完整的 H1 標題" 開頭
-        if (linkTitle.startsWith(baseTitle)) {
-          if (a.length) { // <a> 連結
-            let linkHref = a.attr('href');
-            let url = new URL(linkHref, 'https://cal.syoboi.jp/').href;
-
-            // [NEW] 防止重複添加
-            if (!processedUrls.has(url)) {
-              relatedParts.push({ title: linkTitle, url: url });
-              processedUrls.add(url); // 標記為待處理
-            }
-          }
-          // else: 這是 <span class="selected">，是當前頁 (linkTitle === baseTitle)，已在 processedUrls 中，忽略
-        }
-        // else: 標題不是以 baseTitle 開頭，忽略
-      });
-
-      // [[MODIFIED]
-      // 陣列反轉，使其從舊到新排列
-      relatedParts.reverse();
-
-      if (relatedParts.length > 0) {
-        changeState('loading', { total: allResults.length + relatedParts.length, fetched: allResults.length });
-
-        // 3. 循環抓取所有相關 Part
-        for (const part of relatedParts) {
-          let partData = await getSyoboiData(part.url);
-          if (partData) {
-            allResults.push({ title: part.title, data: partData });
-          }
-          changeState('loading', { total: allResults.length + relatedParts.length - (partData ? 0 : 1), fetched: allResults.length });
-        }
+      const allResults = [];
+      allResults.push({ title: initialResult.title, data: initialResult });
+      for (const part of initialResult.relatedParts) {
+        let partData = await getSyoboi(part.url);
+        allResults.push({ title: part.title, data: partData });
       }
-
-      // 4. 渲染分頁結果
       changeState('tabResult', allResults);
-
     } else {
       // --- Fallback 路徑 (allCinema) ---
+      changeState('allcinema')
       let result = await getAllcinema(true);
       if (!result) {
         result = await getAllcinema(false);
