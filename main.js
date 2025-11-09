@@ -119,7 +119,7 @@ async function GET(url) {
         resolve(response)
       },
       onerror: (response) => { reject(response) },
-    });
+    })
   })
 }
 
@@ -136,9 +136,7 @@ async function POST(url, payload, headers = {}) {
       method: "POST",
       url: url,
       data: data,
-      headers: {
-        ...headers
-      },
+      headers: headers,
       /** @param { Tampermonkey.Response<string> } response */
       onload: (response) => {
         resolve(response)
@@ -163,8 +161,7 @@ function getJson(str) {
  * @param { string } keyword 
  * @returns { Promise<string> }
  */
-async function google(type, keyword, onAirMonth) {
-  // [MODIFIED] 
+async function google(type, keyword) {
   if (keyword === '') return ''
 
   let site = ''
@@ -174,7 +171,7 @@ async function google(type, keyword, onAirMonth) {
     case 'syoboi':
       site = 'https://cal.syoboi.jp/tid'
       match = 'https://cal.syoboi.jp/tid'
-      fullQuery = `intitle:${keyword} intext:${onAirMonth}`;
+      fullQuery = `intitle:${keyword} intext:${bahaData.onAirMonth}`;
       break
     case 'allcinema':
       site = 'https://www.allcinema.net/cinema/'
@@ -202,7 +199,6 @@ async function google(type, keyword, onAirMonth) {
  * @returns { Promise<string> }
  */
 async function searchSyoboi() {
-  // [MODIFIED] 
   let { site, time, fullUrl } = bahaData
   if (!site || !time) return ''
 
@@ -234,7 +230,7 @@ async function searchSyoboi() {
   let syoboiResults = $($.parseHTML(syoboiHtml)).find('.tframe td')
   for (let result of syoboiResults) {
     let resultTimeEl = $(result).find('.findComment')[0]
-    if (!resultTimeEl) continue; // <--- 增加的防護
+    if (!resultTimeEl) continue
     let resultTime = resultTimeEl.innerText
 
     if (time.some(t => resultTime.includes(t))) {
@@ -271,16 +267,10 @@ function songType(type) {
  * @property { Record<'type' | 'title' | 'singer', string> } song
 */
 /**
- * @param { boolean } [jpTitle=true]
+ * @param { string } allcinemaUrl
  * @returns { Promise<AniResponse | null> }
  */
-async function getAllcinema(jpTitle = true) {
-  // [REPLACED] 接收 boolean
-  // 函數內部呼叫 google()
-  // 增加防護 (guard clauses)
-  let animeName = jpTitle ? bahaData.nameJp : bahaData.nameEn
-  if (animeName === '') return null
-  let allcinemaUrl = await google('allcinema', animeName, bahaData.onAirMonth)
+async function getAllcinema(allcinemaUrl) {
   if (!allcinemaUrl) return null
 
   let allcinemaIdMatch = allcinemaUrl.match(/https:\/\/www\.allcinema\.net\/cinema\/([0-9]{1,7})/)
@@ -406,11 +396,11 @@ async function getSyoboi(syoboiUrl) {
 /**
  * @param { AniResponse['cast'] } json
  * @returns {{
- * query: {
- * pages: Record<number, { pageid: number, title: string, langlinks?: { lang: string, '*': string }[], pageprops?: { disambiguation: string }  }>
- * normalized: Record<number, { from: string, to: string }>
- * redirects: Record<number, { from: string, to: string }>
- * }
+ *  query: {
+ *    pages: Record<number, { pageid: number, title: string, langlinks?: { lang: string, '*': string }[], pageprops?: { disambiguation: string }  }>
+ *    normalized: Record<number, { from: string, to: string }>
+ *    redirects: Record<number, { from: string, to: string }>
+ *  }
  * }}
  */
 async function searchWiki(json) {
@@ -459,8 +449,6 @@ async function searchWiki(json) {
  * @returns { string }
  */
 async function getCastHtml(json) {
-  // [MODIFIED]
-  // 增加防護
   function replaceEach(array, getFrom = (it) => it.from, getTo = (it) => it.to) {
     array?.forEach((it) => {
       json.forEach((j, index) => {
@@ -472,7 +460,7 @@ async function getCastHtml(json) {
   }
 
   if (!json || json.length === 0) return '';
-  let castJson = _.cloneDeep(json); // <--- 使用 cloneDeep 避免汙染
+  let castJson = _.cloneDeep(json)
   
   let wikiJson = await searchWiki(castJson)
   let disamb = _.filter(wikiJson.query.pages, ['pageprops', { disambiguation: '' }])
@@ -494,14 +482,14 @@ async function getCastHtml(json) {
     let wikiPage = _.filter(wikiJson.query.pages, page =>
       page.title === j.cv || page.title === j.cvName2
     )[0]
-    let zhName = wikiPage?.langlinks?.[0]['*'] // <--- 防護
+    let zhName = wikiPage?.langlinks?.[0]['*']
     let wikiUrl = zhName ? `https://zh.wikipedia.org/zh-tw/${zhName}` : `https://ja.wikipedia.org/wiki/${j.cvName2 ?? j.cv}`
     let wikiText = zhName ? 'Wiki' : 'WikiJP'
 
     return `
       <div>${j.char ?? ''}</div>
       <div>${j.cv}</div>
-      ${(wikiPage?.missing === '' || !wikiPage) // <--- 防護
+      ${(wikiPage?.missing === '' || !wikiPage)
         ? '<div></div>'
         : `<a href="${wikiUrl}" target="_blank">🔗${wikiText}</a>`}
   `}).join('')
@@ -512,8 +500,6 @@ async function getCastHtml(json) {
  * @returns { string }
  */
 function getSongHtml(json) {
-  // [MODIFIED] 來自 BahaAnimeInfoMod.user.js
-  // 增加防護
   if (!json || json.length === 0) return '';
   return json.map(j => `
     <div>${j.type}${j.title}</div>
@@ -528,8 +514,6 @@ function getSongHtml(json) {
  * @returns { string }
  */
 function getCss() {
-  // [REPLACED]
-  // 增加 /* [NEW] Tab CSS */ 區塊
   return `
     /* Old baha CSS */
     .data_type {
@@ -637,7 +621,6 @@ function getCss() {
 }
 
 /**
- * [NEW] 
  * 渲染分頁內容
  * @param {jQuery} paneElement - 要填入內容的 pane div
  * @param {AniResponse} data - 該分頁的 result data
@@ -706,9 +689,6 @@ async function renderPaneContent(paneElement, data) {
  * @return { Promise<void> }
  */
 async function changeState(state, params) {
-  // [REPLACED]
-  // 增加了 'loading' 和 'tabResult' 狀態
-  // 修改了 'allcinema' 和 'result' 狀態的提示訊息
   switch (state) {
     case 'init':
       $('.anime-option').append(`
@@ -729,8 +709,7 @@ async function changeState(state, params) {
           讀取動畫資訊
         </div>
       `)
-      // [MODIFIED] 綁定新的 masterMain
-      $('#ani-info-main')[0].addEventListener("click", masterMain, {
+      $('#ani-info-main')[0].addEventListener("click", main, {
         once: true
       });
       break
@@ -774,7 +753,7 @@ async function changeState(state, params) {
             資料來源：<a href="${params.source}" target="_blank">${params.title}</a> (Syoboi 查無資料，顯示 allcinema 結果)
           </li>
         </ul>
-      `) // <--- 修改的訊息
+      `)
       break
     }
     case 'tabResult': { // [NEW] 渲染分頁 UI
@@ -834,8 +813,8 @@ async function changeState(state, params) {
     case 'debug': {
       const aaa = await getSyoboi(await searchSyoboi())
       const bbb = await getSyoboi(await google('syoboi', bahaData.nameJp))
-      let ccc = await getAllcinema()
-      let ddd = await getAllcinema(false)
+      const ccc = await getAllcinema(await google('allcinema', bahaData.nameJp))
+      const ddd = await getAllcinema(await google('allcinema', bahaData.nameEn))
       $('#ani-info').html('')
       $('#ani-info').append(`
         <ul class="data_type">
@@ -858,11 +837,7 @@ async function changeState(state, params) {
   }
 }
 
-/**
- * [REPLACED] 
- * 取代原版main()
- */
-async function masterMain() {
+async function main() {
   let debug = false
   try {
     if (debug) {
@@ -870,14 +845,14 @@ async function masterMain() {
       return
     }
 
-    // 1. [Syoboi-First] 嘗試抓取 Syoboi
+    // 嘗試抓取 Syoboi
     changeState('syoboi')
     let initialResult
     if (bahaData.broadcast && !bahaData.broadcast.includes('OVA')){
       initialResult = await getSyoboi(await searchSyoboi());
       const animeName = bahaData.nameJp ? bahaData.nameJp : bahaData.nameEn
       if (!initialResult && animeName) {
-        initialResult = await getSyoboi(await google('syoboi', animeName, bahaData.onAirMonth));
+        initialResult = await getSyoboi(await google('syoboi', animeName));
       }
     }
 
@@ -893,9 +868,10 @@ async function masterMain() {
     } else {
       // --- Fallback 路徑 (allCinema) ---
       changeState('allcinema')
-      let result = await getAllcinema(true);
+      
+      let result = await getAllcinema(await google('allcinema', bahaData.nameJp));
       if (!result) {
-        result = await getAllcinema(false);
+        result = await getAllcinema(await google('allcinema', bahaData.nameEn));
       }
 
       if (result) {
@@ -909,7 +885,7 @@ async function masterMain() {
     if (e.type === 'google') {
       changeState('google', { url: e.url })
     } else {
-      console.error('Master main error:', e);
+      console.error('Main error:', e);
       changeState('fail', { error: e.message || e })
     }
   }
@@ -930,10 +906,9 @@ async function masterMain() {
   });
 
   // Do task or set button to wait for click and do task.
-  if (isAuto) masterMain() // [MODIFIED] 呼叫新的 masterMain
+  if (isAuto) main()
   else changeState('btn')
 })();
-
 
 /**
  * Reference:
