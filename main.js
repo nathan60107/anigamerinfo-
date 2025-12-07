@@ -343,7 +343,7 @@ async function getAllcinema(allcinemaUrl) {
 
 /**
  * @param { string } syoboiUrl 
- * @returns { Promise<AniResponse & { relatedParts: { title: string, url: string } }> }
+ * @returns { Promise<AniResponse & { relatedParts: { title: string, url: string }[] }> }
  */
 async function getSyoboi(syoboiUrl) {
   if (!syoboiUrl) return null
@@ -577,6 +577,9 @@ function getCss() {
       border-bottom: 2px solid var(--btn-more);
       margin-bottom: 10px;
     }
+    #ani-info .ani-info-tabs:not(:has(:nth-child(2))) {
+      display: none; /* Hide the parent container if there is only one tab  */
+    }
     #ani-info .ani-tab-btn {
       padding: 8px 12px;
       cursor: pointer;
@@ -681,11 +684,7 @@ async function renderPaneContent(paneElement, data) {
  * @return { Promise<void> }
  * @overload
  * @param { 'result' } state
- * @param { AniResponse } params
- * @return { Promise<void> }
- * @overload
- * @param { 'tabResult' } state
- * @param { Array<{ title: string, data: AniResponse, error?: string }> } params
+ * @param { AniResponse[] } params
  * @return { Promise<void> }
  */
 async function changeState(state, params) {
@@ -726,45 +725,12 @@ async function changeState(state, params) {
       $('#ani-info-msg').html(`無法取得資料 ${params.error}`)
       break
     case 'result': {
-      // 1.1.3 Fallback (allcinema) 單頁面渲染
-      let castHtml = await getCastHtml(params.cast)
-      let songHtml = getSongHtml(params.song)
-      $('#ani-info').html('')
-      if (castHtml) $('#ani-info').append(`
-        <ul class="data_type">
-          <li>
-            <span>CAST</span>
-            <div class="grid cast">${castHtml}</div>
-          </li>
-        </ul>
-      `)
-      if (songHtml) $('#ani-info').append(`
-        <ul class="data_type">
-          <li>
-            <span>主題曲</span>
-            <div class="grid song">${songHtml}</div>
-          </li>
-        </ul>
-      `)
-      $('#ani-info').append(`
-        <ul class="data_type">
-          <li>
-            <span>aniInfo+</span>
-            資料來源：<a href="${params.source}" target="_blank">${params.title}</a> (Syoboi 查無資料，顯示 allcinema 結果)
-          </li>
-        </ul>
-      `)
-      break
-    }
-    case 'tabResult': { // [NEW] 渲染分頁 UI
       $('#ani-info').html('<div class="ani-info-tabs"></div><div class="ani-info-content"></div>');
       let tabContainer = $('#ani-info .ani-info-tabs');
       let contentContainer = $('#ani-info .ani-info-content');
 
-      let allResults = params;
-
-      for (let i = 0; i < allResults.length; i++) {
-        let result = allResults[i];
+      for (let i = 0; i < params.length; i++) {
+        let result = params[i];
 
         // 抓取 tab 標題
         let tabTitle = result.title || `Part ${i + 1}`
@@ -774,7 +740,7 @@ async function changeState(state, params) {
         contentContainer.append(`<div class="ani-tab-pane" id="ani-part-${i}"></div>`);
         let pane = $(contentContainer.find(`#ani-part-${i}`));
 
-        if (result.data) {
+        if (result) {
           // 資料有效
           pane.html('<i>點擊分頁標籤以載入資料...</i>');
         } else {
@@ -797,7 +763,7 @@ async function changeState(state, params) {
 
         // 尋找對應的資料
         let titleKey = $(this).data('title-key');
-        let resultData = allResults.find(r => r.title === titleKey)?.data;
+        let resultData = params.find(r => r.title === titleKey);
 
         if (resultData && !targetPane.data('loaded')) {
           targetPane.html('<i><span class="loading"></span> 載入資料中...</i>');
@@ -859,12 +825,12 @@ async function main() {
     if (initialResult) {
       // --- Syoboi 成功路徑 ---
       const allResults = [];
-      allResults.push({ title: initialResult.title, data: initialResult });
+      allResults.push(initialResult);
       for (const part of initialResult.relatedParts) {
         let partData = await getSyoboi(part.url);
-        allResults.push({ title: part.title, data: partData });
+        allResults.push(partData);
       }
-      changeState('tabResult', allResults);
+      changeState('result', allResults);
     } else {
       // --- Fallback 路徑 (allCinema) ---
       changeState('allcinema')
@@ -875,7 +841,7 @@ async function main() {
       }
 
       if (result) {
-        changeState('result', result); // 渲染 1.1.3 的單頁結果
+        changeState('result', [result])
       } else {
         changeState('fail', { error: 'Syoboi 和 allcinema 均查無資料' });
       }
