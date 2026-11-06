@@ -3,7 +3,7 @@
 // @description  在動畫瘋中自動擷取動畫常見相關資訊，如CAST以及主題曲。
 // @namespace    nathan60107
 // @author       nathan60107(貝果)
-// @version      1.2.1
+// @version      1.2.2
 // @homepage     https://home.gamer.com.tw/creationCategory.php?owner=nathan60107&c=425332
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
@@ -61,21 +61,6 @@ function titleProcess(title) {
   return title.replaceAll('-', '\\-').replaceAll('#', '')
 }
 
-/**
- * @param { string } time 
- */
-function timeProcess(time) {
-  if (!time || time === '不明') return null
-  let match = time.match(/([0-9]{4})-([0-9]{2})-([0-9]{2})/)
-  if (!match) return null;
-  let [, year, month] = match
-  return [
-    `${year}-${parseInt(month) - 1}～`,
-    `${year}-${parseInt(month)}～`,
-    `${year}-${parseInt(month) + 1}～`,
-  ]
-}
-
 function extractYearMonth(time) {
   if (!time || time === '不明') return null;
   let match = time.match(/([0-9]{4})-([0-9]{2})/);
@@ -99,7 +84,6 @@ async function getBahaData() {
     nameEn: titleProcess(nameEn),
     site: fullUrl ? new URL(fullUrl).hostname.replace('www.', '') : '',
     fullUrl: fullUrl,
-    time: timeProcess(time),
     onAirMonth: extractYearMonth(time),
     broadcast: broadcast,
   }
@@ -196,11 +180,32 @@ async function google(type, keyword) {
 }
 
 /**
+ * syoboi 的 HTML 頁面 (/find, /tid) 會被 Cloudflare 擋下，json.php 則不會，所以一律走 json.php。
+ * @param { Record<string, string | number> } params
+ * @returns { Promise<any> }
+ */
+async function syoboiJson(params) {
+  let urlObj = new URL('https://cal.syoboi.jp/json.php')
+  for (let [k, v] of Object.entries(params)) {
+    urlObj.searchParams.append(k, String(v))
+  }
+  return getJson((await GET(urlObj.toString())).responseText)
+}
+
+/**
+ * @param {{ FirstYear: string, FirstMonth: string }} title
+ * @returns { number } 以月為單位的序號，方便比較先後
+ */
+function syoboiMonthIndex(title) {
+  return Number(title.FirstYear) * 12 + Number(title.FirstMonth)
+}
+
+/**
  * @returns { Promise<string> }
  */
 async function searchSyoboi() {
-  let { site, time, fullUrl } = bahaData
-  if (!site || !time) return ''
+  let { site, onAirMonth, fullUrl } = bahaData
+  if (!site || !onAirMonth) return ''
 
   let exceptionSite = [
     'tv-tokyo.co.jp',
@@ -223,23 +228,18 @@ async function searchSyoboi() {
     }
   }
 
-  let searchUrlObj = new URL('https://cal.syoboi.jp/find?sd=0&ch=&st=&cm=&r=0&rd=&v=0')
-  searchUrlObj.searchParams.append('kw', site)
-  let searchUrl = searchUrlObj.toString()
+  // TitleSearch 會比對 Comment，而 Comment 內含官方網站網址，效果等同原本的 /find?kw=
+  let json = await syoboiJson({ Req: 'TitleSearch', Search: site, Limit: 100 })
+  let [year, month] = onAirMonth.split('-').map(Number)
+  let target = year * 12 + month
 
-  let syoboiHtml = (await GET(searchUrl)).responseText
-  let syoboiResults = $($.parseHTML(syoboiHtml)).find('.tframe td')
-  for (let result of syoboiResults) {
-    let resultTimeEl = $(result).find('.findComment')[0]
-    if (!resultTimeEl) continue
-    let resultTime = resultTimeEl.innerText
+  // 開播月份允許前後一個月的誤差，越接近越優先
+  let best = Object.values(json.Titles ?? {})
+    .map(t => ({ tid: t.TID, diff: Math.abs(syoboiMonthIndex(t) - target) }))
+    .filter(c => c.diff <= 1)
+    .sort((a, b) => a.diff - b.diff)[0]
 
-    if (time.some(t => resultTime.includes(t))) {
-      let resultUrl = $(result).find('a').attr('href')
-      return `https://cal.syoboi.jp${resultUrl}`
-    }
-  }
-  return ''
+  return best ? `https://cal.syoboi.jp/tid/${best.tid}` : ''
 }
 
 /**
@@ -347,51 +347,85 @@ async function getAllcinema(allcinemaUrl) {
  * @returns { Promise<AniResponse & { relatedParts: { title: string, url: string }[] }> }
  */
 async function getSyoboi(syoboiUrl) {
-  if (!syoboiUrl) return null
-  let dom = $($.parseHTML((await GET(syoboiUrl)).responseText));
-  let title = dom.find('h1').clone().children().remove().end().text().trim();
+  let tid = syoboiUrl?.match(/cal\.syoboi\.jp\/tid\/([0-9]+)/)?.[1]
+  if (!tid) return null
 
-  // Process cast
-  let cast = []
-  let castData = dom.find('.cast table tr')
-  for (let role of castData) {
-    cast.push({
-      char: $(role).find('th').text(),
-      cv: $(role).find('td').text()
-    })
-  }
+  let json = await syoboiJson({ Req: 'TitleFull', TID: tid })
+  let data = json.Titles?.[tid]
+  if (!data) return null
 
-  // Process song
-  let song = []
-  let songData = dom.find('.op, .ed, .st, .section:contains("主題歌")') // https://stackoverflow.com/a/42575222
-  for (let sd of songData) {
-    let titleNode = $(sd).find('.title')[0]?.childNodes[2];
-    let songTitle = titleNode ? titleNode.data : $(sd).find('.title').text().trim();
-    song.push({
-      type: songType(sd.className),
-      title: songTitle || 'N/A',
-      singer: $(sd).find('th:contains("歌")').parent().children()[1]?.innerText,
-    })
-  }
+  let title = data.Title
+  let { cast, song } = parseSyoboiComment(data.Comment ?? '')
 
-  // Process related parts
-  const relatedParts = []
-  dom.find('div.tidGroup ul.tidList li').each(function () {
-    let a = $(this).find('a')
-    if (!a.length) return
-    let linkTitle = a.text().trim()
-    if (!linkTitle.startsWith(title)) return // Find part name start with original title.
-    let url = new URL(a.attr('href'), 'https://cal.syoboi.jp/').href
-    if (relatedParts.find(p => p.url === url)) return // Prevent duplicate page
-
-    relatedParts.push({ title: linkTitle, url: url })
-  })
+  // Process related parts: 標題以本作標題開頭的其他作品 (例如「(第2クール)」)，依開播時間排序
+  let search = await syoboiJson({ Req: 'TitleSearch', Search: title, Limit: 100 })
+  const relatedParts = Object.values(search.Titles ?? {})
+    .filter(t => t.TID !== tid && t.Title.startsWith(title))
+    .sort((a, b) => syoboiMonthIndex(a) - syoboiMonthIndex(b))
+    .map(t => ({ title: t.Title, url: `https://cal.syoboi.jp/tid/${t.TID}` }))
 
   return {
-    source: syoboiUrl,
+    source: `https://cal.syoboi.jp/tid/${tid}`,
     title, cast, song,
-    relatedParts: relatedParts.reverse(),
+    relatedParts,
   }
+}
+
+/**
+ * @param { string } heading
+ * @returns { string | null }
+ */
+function syoboiSongType(heading) {
+  if (heading.includes('オープニング')) return 'OP'
+  if (heading.includes('エンディング')) return 'ED'
+  if (heading.includes('挿入歌')) return '插入曲'
+  if (heading.includes('主題歌')) return '主題曲'
+  return null
+}
+
+/**
+ * 解析 syoboi Comment 欄位 (wiki 格式)，例如：
+ *   *オープニングテーマ「ワスレガタキ」
+ *   :作詞・作曲・歌:石崎ひゅーい
+ *   *キャスト
+ *   :石神千空:小林裕介
+ * @param { string } comment
+ * @returns { Pick<AniResponse, 'cast' | 'song'> }
+ */
+function parseSyoboiComment(comment) {
+  let cast = []
+  let song = []
+  /** @type { { kind: 'cast' } | { kind: 'song', song: AniResponse['song'][number] } | null } */
+  let section = null
+
+  for (let line of comment.split(/\r?\n/)) {
+    line = line.trim()
+    if (line.startsWith('*')) {
+      let heading = line.replace(/^\*+/, '').trim()
+      let type = syoboiSongType(heading)
+      if (heading.startsWith('キャスト')) {
+        section = { kind: 'cast' }
+      } else if (type) {
+        let s = { type, title: heading.match(/「.*」/)?.[0] ?? 'N/A', singer: undefined }
+        song.push(s)
+        section = { kind: 'song', song: s }
+      } else {
+        section = null
+      }
+      continue
+    }
+
+    let match = line.match(/^:([^:]*):(.*)$/)
+    if (!match || !section) continue
+    let [, key, value] = match
+    if (section.kind === 'cast') {
+      cast.push({ char: key.trim(), cv: value.trim() })
+    } else if (key.includes('歌') && !section.song.singer) {
+      section.song.singer = value.trim()
+    }
+  }
+
+  return { cast, song }
 }
 
 /**
@@ -746,7 +780,7 @@ async function changeState(state, params) {
           pane.html('<i>點擊分頁標籤以載入資料...</i>');
         } else {
           // 該 Part 抓取失敗
-          pane.html(`<ul class="data_type"><li><span>錯誤</span>抓取「${tabTitle}」的資料失敗。 ${result.error || ''}</li></ul>`);
+          pane.html(`<ul class="data_type"><li><span>錯誤</span>抓取「${tabTitle}」的資料失敗。 ${result?.error || ''}</li></ul>`);
           pane.data('loaded', true);
         }
       }
@@ -829,7 +863,7 @@ async function main() {
       allResults.push(initialResult);
       for (const part of initialResult.relatedParts) {
         let partData = await getSyoboi(part.url);
-        allResults.push(partData);
+        if (partData) allResults.push(partData);
       }
       changeState('result', allResults);
     } else {
